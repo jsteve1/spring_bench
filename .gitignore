@@ -1,0 +1,24 @@
+.tools/
+apps/*.jar
+!apps/.gitkeep
+service/**/target/
+dashboard/dist/
+dashboard/node_modules/
+orchestrator/node_modules/
+
+# Runtime / secrets
+.env
+*.db
+*.db-*
+data/
+orchestrator/runs/
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
