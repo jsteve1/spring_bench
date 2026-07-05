@@ -32,7 +32,7 @@ Software Engineer II** stack so it doubles as interview-ready portfolio evidence
 | Java 17+ | Modern shell on Java 17/21/25 (`docs/01`, `docs/02`) |
 | Spring Boot + microservices + REST | The insurance microservice & contract (`docs/04`) |
 | **Concurrency / performance tuning** | The entire matrix: platform vs virtual threads, heap/CPU footprints, lock contention (`docs/01 §4`, `docs/06`) |
-| Legacy modernization (`javax`→`jakarta`, Boot 2.7→3.5) | Dual-shell architecture (`docs/02 §2`, `docs/01 §3`) — a real bank pain point |
+| Legacy modernization (`javax`→`jakarta`, Boot 2.7→4.1) | Dual-shell architecture (`docs/02 §2`, `docs/01 §3`) — a real bank pain point |
 | Databases + tuning | SQLite WAL, single-writer, transactional audit (`docs/04 §3`) |
 | Performance testing | k6 REST + SSE load scripts (`docs/06`) |
 | Observability | Live `docker stats` + Chart.js dashboards (`docs/05`, `docs/06`) |
@@ -76,5 +76,5 @@ These are optional upgrades to the defaults; adopt as time allows.
 - "How do you operate/observe a fleet?" → orchestrator over the Docker socket + live stats +
   historical dashboards, securely exposed via a tunnel behind access control (`docs/05`).
 - "How would you plan a framework/runtime upgrade?" → the deliberate, low-risk upgrade roadmap in
-  `docs/01 §5` (3.5→4.x, Java 21→25, k6 1→2), enabled by a framework-agnostic core so each step is
+  `docs/01 §5` (4.1→4.2+, k6 1→2), enabled by a framework-agnostic core so each step is
   small, isolated, and reversible. Shows you pin conservatively *and* plan to modernize.

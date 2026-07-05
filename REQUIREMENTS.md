@@ -31,6 +31,7 @@ This is the master index. Detailed, scoped requirements live in `docs/`. Read th
 | `docs/08-api-contracts.md` | JSON DTOs, error envelope (RFC 7807), pagination, validation, status codes, OpenAPI. |
 | `docs/09-observability-and-metrics.md` | JFR + Actuator/Micrometer for context-switch & lock contention; benchmark methodology; run-record schema. |
 | `docs/10-standalone-mode.md` | Run the service on its own (no harness) as a real small-office CRUD app; profiles, security, backups, migrations. |
+| **`docs/HANDOFF.md`** | Agent handoff: implementation status, DoD checklist, recommended next task, known gaps. |
 
 ---
 
@@ -78,12 +79,12 @@ Use a todo list; do not skip validation.
 - **Embedded SQLite per instance**, file-based WAL. No external/shared DB — benchmarks must
   reflect JVM concurrency mechanics, not network DB I/O. Write-safety rules in `docs/04`.
 - **All versions are pinned and modifiable from one place** (`docs/01`). The Java versions in the
-  original brief (8, 11, 17, 21, 25/26) are *defaults of a configurable matrix*, not hard-coded.
+  original brief (8, 11, 17, 21, 25) are *defaults of a configurable matrix*, not hard-coded.
 - **Identical REST/SSE contract** across every runtime — specced to the field in `docs/08`.
 - **Deep metrics need the JVM, not just `docker stats`.** Context-switching and lock contention are
   captured via JFR + Actuator/Micrometer (`docs/09`); `docker stats` alone cannot see them.
 - **The core stays framework- and harness-agnostic** so the app also runs standalone (`docs/10`).
-- **Virtual threads** require **Java 21+ and the modern Boot 3.5.x shell** — see the compatibility
+- **Virtual threads** require **Java 21+ and the modern Boot 4.1.x shell** — see the compatibility
   wall in `docs/01`. Lower runtimes use platform threads.
 - **Host target:** Ubuntu Server + Docker Engine. All runtime scripts must be Linux-compatible
   even though authoring happens on Windows.
@@ -92,6 +93,7 @@ Use a todo list; do not skip validation.
 
 ## Versioning Note
 
-`docs/01-version-matrix.md` records versions **as researched on 2026-06-25**. Software moves fast;
-before building, the agent must re-verify each pinned version against its upstream source and pin
-container images by digest. Treat `docs/01` as authoritative over any version mentioned elsewhere.
+`docs/01-version-matrix.md` records versions **as researched on 2026-07-03** (revised from the 2026-06-25
+baseline). Software moves fast; before building, the agent must re-verify each pinned version against
+its upstream source and pin container images by digest. Treat `docs/01` as authoritative over any
+version mentioned elsewhere. See `docs/HANDOFF.md` for current implementation status.

@@ -6,9 +6,9 @@ Versions referenced here are pinned in `docs/01-version-matrix.md`.
 
 ## 1. The Core Idea
 
-To keep business logic **provably identical** across Java 8→26 while honoring the compatibility
+To keep business logic **provably identical** across Java 8→25 while honoring the compatibility
 wall (`docs/01 §3`), isolate the domain from the framework. The same business code is invoked by a
-**legacy shell** (Spring Boot 2.7.18) and a **modern shell** (Spring Boot 3.5.x); only the
+**legacy shell** (Spring Boot 2.7.18) and a **modern shell** (Spring Boot 4.1.x); only the
 framework wrapper and the runtime/threading config differ.
 
 ```
@@ -21,7 +21,7 @@ framework wrapper and the runtime/threading config differ.
                depends on ▼  │               │  ▼ depends on
         ┌─────────────────────────┐   ┌─────────────────────────┐
         │ app-legacy              │   │ app-modern              │
-        │ Spring Boot 2.7.18      │   │ Spring Boot 3.5.x       │
+        │ Spring Boot 2.7.18      │   │ Spring Boot 4.1.x       │
         │ Java 8 bytecode         │   │ Java 17 bytecode        │
         │ → insurance-legacy.jar  │   │ → insurance-modern.jar  │
         └─────────────────────────┘   └─────────────────────────┘
@@ -40,7 +40,7 @@ framework wrapper and the runtime/threading config differ.
   benchmarking (a feature, not a compromise).
 - **Thin shells.** Each shell contains only controllers + wiring and delegates 100% of behavior to
   the shared core. Standard Spring MVC annotations (`@RestController`, `@GetMapping`, …) are
-  source-compatible between Boot 2.7 and 3.5 **as long as you never touch the servlet API
+  source-compatible between Boot 2.7 and 4.1 **as long as you never touch the servlet API
   directly** (`javax.servlet` vs `jakarta.servlet`). Use Spring's `SseEmitter` for SSE, never raw
   servlet streaming.
 
@@ -54,13 +54,13 @@ service/
 ├── core-domain/            # POJOs, enums, audit logic, service interfaces. Java 8. No framework.
 ├── core-persistence/       # JDBC DAOs, SQLite WAL config, migrations. Java 8. No framework.
 ├── app-legacy/             # Spring Boot 2.7.18 shell  (release="8")  → insurance-legacy.jar
-├── app-modern/             # Spring Boot 3.5.x shell   (release="17") → insurance-modern.jar
+├── app-modern/             # Spring Boot 4.1.x shell   (release="17") → insurance-modern.jar
 └── build-all.(sh|ps1)      # builds both shells, copies artifacts into ../apps/ under matrix names
 ```
 
 - `core-domain` / `core-persistence`: set Maven compiler `<release>8</release>`.
 - `app-legacy`: Boot 2.7.18 parent, `<release>8</release>`.
-- `app-modern`: Boot 3.5.x parent, `<release>17</release>`.
+- `app-modern`: Boot 4.1.x parent, `<release>17</release>`.
 - Keep dependency versions inherited from each Boot BOM; only `sqlite-jdbc` (3.53.2.0) is declared
   explicitly in the shared modules. Do not override HikariCP (`docs/01 §1`).
 
@@ -76,9 +76,9 @@ under test).
 | :-- | :-- | :-- | :-- | :-- |
 | `insurance-j8.jar` | `app-legacy` | 2.7.18 | Java 8 | java8-* |
 | `insurance-j11.jar` | `app-legacy` (same artifact) | 2.7.18 | Java 8 | java11-* |
-| `insurance-j17.jar` | `app-modern` | 3.5.x | Java 17 | java17-* |
-| `insurance-j21.jar` | `app-modern` (same artifact) | 3.5.x | Java 17 | java21-* (virtual ON) |
-| `insurance-modern.jar` | `app-modern` (same artifact) | 3.5.x | Java 17 | java25-* (virtual ON) |
+| `insurance-j17.jar` | `app-modern` | 4.1.x | Java 17 | java17-* |
+| `insurance-j21.jar` | `app-modern` (same artifact) | 4.1.x | Java 17 | java21-* (virtual ON) |
+| `insurance-modern.jar` | `app-modern` (same artifact) | 4.1.x | Java 17 | java25-* (virtual ON) |
 
 > If you prefer fewer files, ship just `insurance-legacy.jar` + `insurance-modern.jar` and update
 > the compose `volumes:` accordingly. The five-name mapping exists only to match the original brief.
