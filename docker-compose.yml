@@ -114,7 +114,7 @@ services:
 
   java21-virtual-low:
     <<: *matrix-service
-    image: eclipse-temurin:21-jdk-alpine
+    image: eclipse-temurin:21-jdk-alpine@sha256:1ff763083f2993d57d0bf374ab10bb3e2cb873af6c13a04458ebbd3e0337dc76
     container_name: java21-virtual-low
     environment:
       <<: *matrix-env
@@ -132,7 +132,7 @@ services:
 
   java21-virtual-high:
     <<: *matrix-service
-    image: eclipse-temurin:21-jdk-alpine
+    image: eclipse-temurin:21-jdk-alpine@sha256:1ff763083f2993d57d0bf374ab10bb3e2cb873af6c13a04458ebbd3e0337dc76
     container_name: java21-virtual-high
     environment:
       <<: *matrix-env
