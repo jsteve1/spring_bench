@@ -3,6 +3,10 @@
 > **Purpose:** Actionable user stories to build the platform described in `REQUIREMENTS.md` and
 > `docs/01`–`docs/10`. Ordered for dependency-safe delivery; each epic maps to the build order in
 > `REQUIREMENTS.md §Build Order`.
+>
+> **Progress snapshot (2026-07-05):** See `docs/HANDOFF.md` for DoD status. Epics **FOUND**, **PIN-01**,
+> **CORE/PERSIST/MODERN/LEGACY** (MVP), **BUILD**, and **INFRA-01** are largely scaffolded; **PIN-02**,
+> **PERSIST-06**, **ORCH**, **OBS**, and contract-verification stories remain open.
 
 **Story ID format:** `EPIC-STORY` (e.g. `CORE-03`).  
 **Priority:** P0 = blocking / DoD · P1 = core feature · P2 = polish · P3 = stretch (JPMC extras).
@@ -23,9 +27,9 @@
 
 | ID | Priority | Story | Acceptance criteria | Depends on |
 | :-- | :-- | :-- | :-- | :-- |
-| PIN-01 | P0 | **As a** maintainer, **I want** all versions from `docs/01` copied into build/config files, **so that** there is one enforceable source of truth. | Boot 2.7.18 / 3.5.x, sqlite-jdbc 3.53.2.0, k6 1.8.0, cloudflared 2026.6.1 reflected in POMs, Dockerfiles, compose image tags (readable patch tags, digest added in PIN-02). | FOUND-02 |
+| PIN-01 | P0 | **As a** maintainer, **I want** all versions from `docs/01` copied into build/config files, **so that** there is one enforceable source of truth. | Boot 2.7.18 / 4.1.x, sqlite-jdbc 3.53.2.0, k6 1.8.0, cloudflared 2026.6.1 reflected in POMs, Dockerfiles, compose image tags (readable patch tags, digest added in PIN-02). | FOUND-02 |
 | PIN-02 | P0 | **As a** maintainer, **I want** container images pinned by digest, **so that** builds are reproducible. | Every image in compose uses `@sha256:…`; `docker compose config` validates. Runs **after** INFRA-01 defines the service list with readable tags. | PIN-01, INFRA-01 |
-| PIN-03 | P1 | **As a** maintainer, **I want** a version re-verify checklist, **so that** pins stay current before release. | README or `docs/01` note documents upstream URLs and re-verify steps (researched 2026-06-25 baseline). | PIN-01 |
+| PIN-03 | P1 | **As a** maintainer, **I want** a version re-verify checklist, **so that** pins stay current before release. | README or `docs/01` note documents upstream URLs and re-verify steps (researched 2026-07-03 baseline). | PIN-01 |
 
 ---
 
@@ -71,7 +75,7 @@
 
 | ID | Priority | Story | Acceptance criteria | Depends on |
 | :-- | :-- | :-- | :-- | :-- |
-| MODERN-01 | P0 | **As a** matrix operator, **I want** Boot 3.5.x shell wiring core services, **so that** `insurance-modern.jar` runs on Java 17–25. | `app-modern` depends on core; `<release>17</release>`; jakarta namespace in shell only; wires `DataSource` per PERSIST-02; **Flyway runs on startup** (PERSIST-01). | PERSIST-03 |
+| MODERN-01 | P0 | **As a** matrix operator, **I want** Boot 4.1.x shell wiring core services, **so that** `insurance-modern.jar` runs on Java 17–25. | `app-modern` depends on core; `<release>17</release>`; jakarta namespace in shell only; wires `DataSource` per PERSIST-02; **Flyway runs on startup** (PERSIST-01). | PERSIST-03 |
 | MODERN-02 | P0 | **As an** API consumer, **I want** identical REST/SSE contract to legacy, **so that** benchmarks isolate runtime variables only. | Same paths, status codes, bodies as legacy; verified by OpenAPI diff (empty); benchmark `updatedBy` from `X-User` when present. | MODERN-01, LEGACY-02 |
 | MODERN-03 | P0 | **As a** matrix operator, **I want** virtual-thread config via `SPRING_THREADS_VIRTUAL_ENABLED`, **so that** Java 21+ targets can enable Loom. | Maps to `spring.threads.virtual.enabled`; `/health` reflects *actual* effective state (Java 21+ AND flag set). | MODERN-01 |
 | MODERN-04 | P0 | **As an** API consumer, **I want** RFC 7807 + Jakarta validation mirroring legacy rules, **so that** error shapes are byte-identical. | Same Problem Details structure; field-level `errors[]` on 400; 409 for disallowed status transitions. | MODERN-02 |
