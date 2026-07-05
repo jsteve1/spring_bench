@@ -7,7 +7,7 @@ $Mvn = if (Get-Command mvn -ErrorAction SilentlyContinue) { "mvn" }
        else { throw "Maven not found. Install Maven 3.9+ or run from a repo with .tools/apache-maven." }
 
 Write-Host "Building insurance service modules..."
-& $Mvn -q clean package -DskipTests
+& $Mvn -q clean package
 
 $AppsDir = Join-Path (Split-Path -Parent $Root) "apps"
 New-Item -ItemType Directory -Force -Path $AppsDir | Out-Null

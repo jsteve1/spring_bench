@@ -14,7 +14,7 @@ else
 fi
 
 echo "Building insurance service modules..."
-"$MVN" -q clean package -DskipTests
+"$MVN" -q clean package
 
 APPS_DIR="$ROOT/../apps"
 mkdir -p "$APPS_DIR"

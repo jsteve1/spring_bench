@@ -13,11 +13,11 @@ This document captures what the previous agent built, what is stubbed, and the *
 | Docs / version pins | **Done** | Boot **4.1.0** modern, **2.7.18** legacy; Java matrix LTS-only (8/11/17/21/25) |
 | `service/` multi-module | **Done (MVP)** | Core + both shells compile; `/health` smoke-tested on modern JAR |
 | `apps/` artifacts | **Local only** | JARs gitignored; run `service/build-all.ps1` after clone |
-| `docker-compose.yml` | **Done (tags)** | 10 matrix services + orchestrator; **no digest pins yet** |
+| `docker-compose.yml` | **Partial (PIN-02)** | Java 21 rows digest-pinned; other matrix images still tag-only |
 | `orchestrator/` | **Stub** | Express API skeleton; Docker socket **not** wired |
 | `dashboard/` | **Stub** | React + Chart.js scaffold; needs `npm run build` for orchestrator static serve |
 | `loadtests/` | **Stub** | `rest.js` / `sse.js` present; `bench/k6-sse` image not built in CI |
-| Tests | **Missing** | No PERSIST-06 write-load test; no REST-assured; no OpenAPI diff |
+| Tests | **Partial** | PERSIST-06 concurrent write test green; REST-assured / OpenAPI parity not yet verified |
 | Observability / JFR | **Not started** | Actuator exposed; no JFR wiring, no Micrometer matrix tags |
 | Standalone / auth | **Not started** | Profile exists; no security, no persistent DB docs verified |
 | cloudflared | **Compose only** | `--profile tunnel`; needs `TUNNEL_TOKEN` in `.env` |
@@ -29,11 +29,11 @@ This document captures what the previous agent built, what is stubbed, and the *
 | # | Item | Status |
 | :--: | :-- | :--: |
 | 1 | `build-all` → `./apps/` | ✅ (run locally; JARs not in git) |
-| 2 | Identical contract / OpenAPI diff empty | ❌ not verified |
-| 3 | `docker compose config` validates | ✅ (major tags; digests pending PIN-02) |
+| 2 | Identical contract / OpenAPI diff empty | ⚠️ script at `scripts/openapi-diff.mjs`; parity not verified |
+| 3 | `docker compose config` validates | ✅ (Java 21 digest-pinned; remaining tags pending PIN-02) |
 | 4 | Orchestrator + matrix start/stoppable | ❌ orchestrator stub only |
 | 5 | k6 load test + live/historical metrics + JFR | ❌ |
-| 6 | Zero `SQLITE_BUSY` under load | ❌ no test yet |
+| 6 | Zero `SQLITE_BUSY` under load | ✅ `ConcurrentWriteLoadTest` (32×25 writes) |
 | 7 | cloudflared public hostname | ❌ |
 | 8 | Standalone mode with auth | ❌ |
 
@@ -41,20 +41,19 @@ This document captures what the previous agent built, what is stubbed, and the *
 
 ## Recommended next task (start here)
 
-### **Epic: Service hardening + first matrix smoke test**
+### **Epic: Contract tests + Docker matrix smoke**
 
-**Goal:** Prove the microservice is correct under concurrent writes and runs inside Docker.
+**Goal:** Verify HTTP contract parity and run at least one matrix container end-to-end.
 
 **Stories (in order):**
 
-1. **PERSIST-06** — Concurrent write integration test in `core-persistence`; assert zero `SQLITE_BUSY` (DoD #6).
-2. **PERSIST-07 / CORE-03** — DAO + domain unit tests (optional but helps before shell tests).
-3. **LEGACY-07 / MODERN-06** — REST-assured contract tests on both shells; happy path + 400/404/409.
-4. **MODERN-02 / LEGACY-06** — Fetch `/v3/api-docs` from both shells; add CI script to diff (DoD #2).
-5. **PIN-02** — Pin one Temurin image by digest (e.g. `21-jdk-alpine`); validate `docker compose config`.
-6. **Smoke** — `docker compose up -d java21-virtual-low`; `curl http://localhost:8087/health`.
+1. **LEGACY-07 / MODERN-06** — REST-assured integration tests on both shells; happy path + 400/404/409.
+2. **MODERN-02** — Run `scripts/openapi-diff.mjs` with both shells up; fix any contract drift until diff is empty (DoD #2).
+3. **PIN-02 (remainder)** — Digest-pin remaining Temurin / k6 / cloudflared images in compose.
+4. **Smoke** — `docker compose up -d java21-virtual-low`; `curl http://localhost:8087/health`.
+5. **PERSIST-07 / CORE-03** — DAO + domain unit tests (optional hardening).
 
-**Acceptance:** DoD #6 green; at least one matrix container healthy on host port; OpenAPI diff script exists (can fail until shells aligned).
+**Acceptance:** OpenAPI diff empty; `java21-virtual-low` healthy on port 8087; REST-assured suites green.
 
 **Do not start yet:** Orchestrator Docker control (ORCH-02/03) until a matrix target runs reliably in Docker.
 
@@ -117,7 +116,20 @@ docker compose up -d java21-virtual-low
 | `service/app-legacy/` | Boot 2.7 shell |
 | `docker-compose.yml` | 10-service matrix |
 | `docs/01-version-matrix.md` | Version source of truth |
+| `scripts/openapi-diff.mjs` | Legacy vs modern OpenAPI diff (DoD #2) |
+| `service/core-persistence/.../ConcurrentWriteLoadTest.java` | PERSIST-06 write-load test |
 | `docs/11-backlog.md` | Full story backlog |
+
+---
+
+## Completed this session (2026-07-05)
+
+- Merged PR #1 (initial scaffold) into `main`.
+- **PERSIST-06:** `ConcurrentWriteLoadTest` — 32 threads × 25 member creates, zero `SQLITE_BUSY`.
+- **PIN-02 (partial):** `java21-virtual-low` / `java21-virtual-high` pinned to Temurin 21 alpine manifest digest.
+- **OpenAPI diff:** `scripts/openapi-diff.{mjs,ps1,sh}` added.
+- `build-all` now runs tests (no `-DskipTests`).
+- Host smoke: modern JAR `/health` UP on port 8099. Docker matrix smoke blocked — Docker Desktop not running on build host.
 
 ---
 

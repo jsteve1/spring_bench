@@ -5,8 +5,8 @@
 > `REQUIREMENTS.md §Build Order`.
 >
 > **Progress snapshot (2026-07-05):** See `docs/HANDOFF.md` for DoD status. Epics **FOUND**, **PIN-01**,
-> **CORE/PERSIST/MODERN/LEGACY** (MVP), **BUILD**, and **INFRA-01** are largely scaffolded; **PIN-02**,
-> **PERSIST-06**, **ORCH**, **OBS**, and contract-verification stories remain open.
+> **CORE/PERSIST/MODERN/LEGACY** (MVP), **BUILD**, and **INFRA-01** are largely scaffolded; **PERSIST-06** done;
+> **PIN-02** partial (Java 21 digest); **ORCH**, **OBS**, REST-assured, and OpenAPI parity verification remain open.
 
 **Story ID format:** `EPIC-STORY` (e.g. `CORE-03`).  
 **Priority:** P0 = blocking / DoD · P1 = core feature · P2 = polish · P3 = stretch (JPMC extras).
