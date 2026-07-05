@@ -4,6 +4,8 @@ import com.springbench.insurance.domain.exception.IllegalStatusTransitionExcepti
 import com.springbench.insurance.domain.exception.NotFoundException;
 import com.springbench.insurance.modern.web.dto.ProblemDetailResponse;
 import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -16,6 +18,7 @@ import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(NotFoundException.class)
     public ResponseEntity<ProblemDetailResponse> notFound(NotFoundException ex, HttpServletRequest request) {
@@ -38,6 +41,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ProblemDetailResponse> generic(Exception ex, HttpServletRequest request) {
+        log.error("Unhandled exception on {}", request.getRequestURI(), ex);
         return problem(HttpStatus.INTERNAL_SERVER_ERROR, "Internal error", "Unexpected server error", request, null);
     }
 

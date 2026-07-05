@@ -12,7 +12,7 @@ x-matrix-service: &matrix-service
 services:
   java8-platform-low:
     <<: *matrix-service
-    image: eclipse-temurin:8-jdk-alpine
+    image: eclipse-temurin:8-jdk-alpine@sha256:0a67288aa987bc8bf6eafcd7f3eb0b7684e458b4587dd459523830854acd4ff5
     container_name: java8-platform-low
     environment:
       <<: *matrix-env
@@ -29,7 +29,7 @@ services:
 
   java8-platform-mid:
     <<: *matrix-service
-    image: eclipse-temurin:8-jdk-alpine
+    image: eclipse-temurin:8-jdk-alpine@sha256:0a67288aa987bc8bf6eafcd7f3eb0b7684e458b4587dd459523830854acd4ff5
     container_name: java8-platform-mid
     environment:
       <<: *matrix-env
@@ -46,7 +46,7 @@ services:
 
   java11-platform-low:
     <<: *matrix-service
-    image: eclipse-temurin:11-jdk-alpine
+    image: eclipse-temurin:11-jdk-alpine@sha256:7ab5b720f367e4bb4da17cd9cd71e761572d14138d4b846d110af49f3ea116a0
     container_name: java11-platform-low
     environment:
       <<: *matrix-env
@@ -63,7 +63,7 @@ services:
 
   java11-platform-high:
     <<: *matrix-service
-    image: eclipse-temurin:11-jdk-alpine
+    image: eclipse-temurin:11-jdk-alpine@sha256:7ab5b720f367e4bb4da17cd9cd71e761572d14138d4b846d110af49f3ea116a0
     container_name: java11-platform-high
     environment:
       <<: *matrix-env
@@ -80,7 +80,7 @@ services:
 
   java17-platform-mid:
     <<: *matrix-service
-    image: eclipse-temurin:17-jdk-alpine
+    image: eclipse-temurin:17-jdk-alpine@sha256:638937c54b6d63f0973a20501973e7c433a36b1f22262bd2b25afa7be5ff8c4a
     container_name: java17-platform-mid
     environment:
       <<: *matrix-env
@@ -97,7 +97,7 @@ services:
 
   java17-platform-high:
     <<: *matrix-service
-    image: eclipse-temurin:17-jdk-alpine
+    image: eclipse-temurin:17-jdk-alpine@sha256:638937c54b6d63f0973a20501973e7c433a36b1f22262bd2b25afa7be5ff8c4a
     container_name: java17-platform-high
     environment:
       <<: *matrix-env
@@ -150,7 +150,7 @@ services:
 
   java25-virtual-arm-low:
     <<: *matrix-service
-    image: eclipse-temurin:25-jdk-alpine
+    image: eclipse-temurin:25-jdk-alpine@sha256:5ecfde8e5ecde5954ea3721155b345ef56c1d579b940c761318ad4c05959a151
     platform: linux/arm64/v8
     container_name: java25-virtual-arm-low
     environment:
@@ -169,7 +169,7 @@ services:
 
   java25-virtual-arm-high:
     <<: *matrix-service
-    image: eclipse-temurin:25-jdk-alpine
+    image: eclipse-temurin:25-jdk-alpine@sha256:5ecfde8e5ecde5954ea3721155b345ef56c1d579b940c761318ad4c05959a151
     platform: linux/arm64/v8
     container_name: java25-virtual-arm-high
     environment:
@@ -204,7 +204,7 @@ services:
 
   cloudflared:
     profiles: [tunnel]
-    image: cloudflare/cloudflared:2026.6.1
+    image: cloudflare/cloudflared:2026.6.1@sha256:6d91c121b803126f7a5344005d17a9324788fc09d305b6e2560ec6040a7ae283
     container_name: cloudflared
     restart: unless-stopped
     command: tunnel --no-autoupdate run
