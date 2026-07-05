@@ -4,6 +4,13 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { WebSocketServer } from "ws";
 import { createServer } from "http";
+import { dockerAvailable } from "./dockerClient.js";
+import {
+  listTargets,
+  restartTarget,
+  startTarget,
+  stopTarget,
+} from "./targets.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -14,19 +21,6 @@ const PORT = process.env.PORT || 3000;
 const RUNS_DIR = process.env.RUNS_DIR || path.join(__dirname, "..", "runs");
 const DASHBOARD_DIST = process.env.DASHBOARD_DIST || path.join(__dirname, "..", "..", "dashboard", "dist");
 
-const MATRIX_TARGETS = [
-  "java8-platform-low",
-  "java8-platform-mid",
-  "java11-platform-low",
-  "java11-platform-high",
-  "java17-platform-mid",
-  "java17-platform-high",
-  "java21-virtual-low",
-  "java21-virtual-high",
-  "java25-virtual-arm-low",
-  "java25-virtual-arm-high",
-];
-
 fs.mkdirSync(RUNS_DIR, { recursive: true });
 
 app.use(express.json());
@@ -35,26 +29,43 @@ if (fs.existsSync(DASHBOARD_DIST)) {
   app.use(express.static(DASHBOARD_DIST));
 }
 
-app.get("/api/targets", (_req, res) => {
-  res.json(
-    MATRIX_TARGETS.map((name) => ({
-      name,
-      port: targetPort(name),
-      state: "unknown",
-    })),
-  );
+app.get("/health", (_req, res) => {
+  res.json({
+    status: "UP",
+    dockerSocket: dockerAvailable(),
+  });
 });
 
-app.post("/api/targets/:name/start", (req, res) => {
-  res.json({ name: req.params.name, action: "start", status: "accepted" });
+app.get("/api/targets", async (_req, res, next) => {
+  try {
+    res.json(await listTargets());
+  } catch (err) {
+    next(err);
+  }
 });
 
-app.post("/api/targets/:name/stop", (req, res) => {
-  res.json({ name: req.params.name, action: "stop", status: "accepted" });
+app.post("/api/targets/:name/start", async (req, res, next) => {
+  try {
+    res.json(await startTarget(req.params.name));
+  } catch (err) {
+    next(err);
+  }
 });
 
-app.post("/api/targets/:name/restart", (req, res) => {
-  res.json({ name: req.params.name, action: "restart", status: "accepted" });
+app.post("/api/targets/:name/stop", async (req, res, next) => {
+  try {
+    res.json(await stopTarget(req.params.name));
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.post("/api/targets/:name/restart", async (req, res, next) => {
+  try {
+    res.json(await restartTarget(req.params.name));
+  } catch (err) {
+    next(err);
+  }
 });
 
 app.post("/api/loadtest", (req, res) => {
@@ -86,38 +97,26 @@ app.get("/api/runs/:id", (req, res) => {
   res.json(JSON.parse(fs.readFileSync(file, "utf8")));
 });
 
+app.use((err, _req, res, _next) => {
+  const status = err.status || err.statusCode || 500;
+  res.status(status).json({
+    error: err.message || "Internal error",
+  });
+});
+
 wss.on("connection", (socket) => {
   const timer = setInterval(() => {
     socket.send(
       JSON.stringify({
         ts: new Date().toISOString(),
-        targets: MATRIX_TARGETS.map((name) => ({
-          name,
-          cpuPct: Math.random() * 100,
-          memMb: Math.random() * 512,
-        })),
+        targets: [],
+        note: "ORCH-04: live docker stats not wired yet",
       }),
     );
   }, 2000);
   socket.on("close", () => clearInterval(timer));
 });
 
-function targetPort(name) {
-  const map = {
-    "java8-platform-low": 8081,
-    "java8-platform-mid": 8082,
-    "java11-platform-low": 8083,
-    "java11-platform-high": 8084,
-    "java17-platform-mid": 8085,
-    "java17-platform-high": 8086,
-    "java21-virtual-low": 8087,
-    "java21-virtual-high": 8088,
-    "java25-virtual-arm-low": 8089,
-    "java25-virtual-arm-high": 8090,
-  };
-  return map[name] || 8080;
-}
-
 server.listen(PORT, () => {
-  console.log(`Orchestrator listening on :${PORT}`);
+  console.log(`Orchestrator listening on :${PORT} (docker socket: ${dockerAvailable()})`);
 });
