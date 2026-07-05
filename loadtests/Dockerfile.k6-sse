@@ -1,0 +1,5 @@
+FROM grafana/xk6:latest AS build
+RUN xk6 build v1.8.0 --with github.com/phymbert/xk6-sse
+
+FROM grafana/k6:1.8.0
+COPY --from=build /xk6 /usr/bin/k6

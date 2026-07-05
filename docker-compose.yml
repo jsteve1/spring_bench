@@ -1,0 +1,219 @@
+x-matrix-service: &matrix-service
+  networks: [matrix-net]
+  environment: &matrix-env
+    SERVER_PORT: "8080"
+    DB_PATH: /tmp/insurance.db
+    SPRING_PROFILES_ACTIVE: benchmark
+  volumes:
+    - ./apps/insurance-j8.jar:/app.jar:ro
+  command: sh -c "java $$JAVA_OPTS -jar /app.jar"
+  restart: unless-stopped
+
+services:
+  java8-platform-low:
+    <<: *matrix-service
+    image: eclipse-temurin:8-jdk-alpine
+    container_name: java8-platform-low
+    environment:
+      <<: *matrix-env
+      JAVA_OPTS: -Xmx192m
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256m
+    volumes:
+      - ./apps/insurance-j8.jar:/app.jar:ro
+    ports:
+      - "8081:8080"
+
+  java8-platform-mid:
+    <<: *matrix-service
+    image: eclipse-temurin:8-jdk-alpine
+    container_name: java8-platform-mid
+    environment:
+      <<: *matrix-env
+      JAVA_OPTS: -Xmx768m
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1g
+    volumes:
+      - ./apps/insurance-j8.jar:/app.jar:ro
+    ports:
+      - "8082:8080"
+
+  java11-platform-low:
+    <<: *matrix-service
+    image: eclipse-temurin:11-jdk-alpine
+    container_name: java11-platform-low
+    environment:
+      <<: *matrix-env
+      JAVA_OPTS: -Xmx384m
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512m
+    volumes:
+      - ./apps/insurance-j11.jar:/app.jar:ro
+    ports:
+      - "8083:8080"
+
+  java11-platform-high:
+    <<: *matrix-service
+    image: eclipse-temurin:11-jdk-alpine
+    container_name: java11-platform-high
+    environment:
+      <<: *matrix-env
+      JAVA_OPTS: -Xmx3g
+    deploy:
+      resources:
+        limits:
+          cpus: "4.0"
+          memory: 4g
+    volumes:
+      - ./apps/insurance-j11.jar:/app.jar:ro
+    ports:
+      - "8084:8080"
+
+  java17-platform-mid:
+    <<: *matrix-service
+    image: eclipse-temurin:17-jdk-alpine
+    container_name: java17-platform-mid
+    environment:
+      <<: *matrix-env
+      JAVA_OPTS: -Xmx1500m
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2g
+    volumes:
+      - ./apps/insurance-j17.jar:/app.jar:ro
+    ports:
+      - "8085:8080"
+
+  java17-platform-high:
+    <<: *matrix-service
+    image: eclipse-temurin:17-jdk-alpine
+    container_name: java17-platform-high
+    environment:
+      <<: *matrix-env
+      JAVA_OPTS: -Xmx6g
+    deploy:
+      resources:
+        limits:
+          cpus: "8.0"
+          memory: 8g
+    volumes:
+      - ./apps/insurance-j17.jar:/app.jar:ro
+    ports:
+      - "8086:8080"
+
+  java21-virtual-low:
+    <<: *matrix-service
+    image: eclipse-temurin:21-jdk-alpine
+    container_name: java21-virtual-low
+    environment:
+      <<: *matrix-env
+      JAVA_OPTS: -Xmx192m
+      SPRING_THREADS_VIRTUAL_ENABLED: "true"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256m
+    volumes:
+      - ./apps/insurance-j21.jar:/app.jar:ro
+    ports:
+      - "8087:8080"
+
+  java21-virtual-high:
+    <<: *matrix-service
+    image: eclipse-temurin:21-jdk-alpine
+    container_name: java21-virtual-high
+    environment:
+      <<: *matrix-env
+      JAVA_OPTS: -Xmx3g
+      SPRING_THREADS_VIRTUAL_ENABLED: "true"
+    deploy:
+      resources:
+        limits:
+          cpus: "4.0"
+          memory: 4g
+    volumes:
+      - ./apps/insurance-j21.jar:/app.jar:ro
+    ports:
+      - "8088:8080"
+
+  java25-virtual-arm-low:
+    <<: *matrix-service
+    image: eclipse-temurin:25-jdk-alpine
+    platform: linux/arm64/v8
+    container_name: java25-virtual-arm-low
+    environment:
+      <<: *matrix-env
+      JAVA_OPTS: -Xmx384m
+      SPRING_THREADS_VIRTUAL_ENABLED: "true"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512m
+    volumes:
+      - ./apps/insurance-modern.jar:/app.jar:ro
+    ports:
+      - "8089:8080"
+
+  java25-virtual-arm-high:
+    <<: *matrix-service
+    image: eclipse-temurin:25-jdk-alpine
+    platform: linux/arm64/v8
+    container_name: java25-virtual-arm-high
+    environment:
+      <<: *matrix-env
+      JAVA_OPTS: -Xmx3g
+      SPRING_THREADS_VIRTUAL_ENABLED: "true"
+    deploy:
+      resources:
+        limits:
+          cpus: "4.0"
+          memory: 4g
+    volumes:
+      - ./apps/insurance-modern.jar:/app.jar:ro
+    ports:
+      - "8090:8080"
+
+  orchestrator:
+    build: ./orchestrator
+    container_name: orchestrator
+    networks: [matrix-net]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./loadtests:/loadtests:ro
+      - ./orchestrator/runs:/app/runs
+    environment:
+      - PORT=3000
+      - COMPOSE_PROJECT_NAME=spring_bench
+      - DASHBOARD_DIST=/app/dashboard
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+  cloudflared:
+    profiles: [tunnel]
+    image: cloudflare/cloudflared:2026.6.1
+    container_name: cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+    networks: [matrix-net]
+    depends_on:
+      - orchestrator
+
+networks:
+  matrix-net:
+    name: matrix-net

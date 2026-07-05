@@ -42,7 +42,7 @@ Return JSON including at minimum:
   "status": "UP",
   "javaVersion": "25.0.1",
   "javaVendor": "Eclipse Adoptium",
-  "springBoot": "3.5.x",
+  "springBoot": "4.1.x",
   "virtualThreadsEnabled": true,
   "activeThreadCount": 42,
   "availableProcessors": 4,
@@ -94,7 +94,7 @@ SQLite serializes writers; under concurrent load this is the #1 correctness risk
 Per `docs/02 §4`, `service/build-all` produces two artifacts and maps them into `./apps/`:
 
 - `app-legacy` (Boot 2.7.18, Java 8 bytecode) → `insurance-j8.jar`, `insurance-j11.jar`
-- `app-modern` (Boot 3.5.x, Java 17 bytecode) → `insurance-j17.jar`, `insurance-j21.jar`,
+- `app-modern` (Boot 4.1.x, Java 17 bytecode) → `insurance-j17.jar`, `insurance-j21.jar`,
   `insurance-modern.jar`
 
 `build-all` must: build both modules, fail on test failure, then copy/link artifacts to the five

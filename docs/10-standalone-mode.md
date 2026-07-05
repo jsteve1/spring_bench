@@ -33,7 +33,7 @@ Select with `SPRING_PROFILES_ACTIVE=standalone`. Profiles only change configurat
 cd service
 ./mvnw -pl app-modern -am spring-boot:run -Dspring-boot.run.profiles=standalone
 
-# or the built jar (any host with a JRE 17+)
+# or the built jar (JRE 25 LTS recommended; any JRE 17+ works)
 SPRING_PROFILES_ACTIVE=standalone \
 DB_PATH=./data/office.db \
 SERVER_PORT=8080 \

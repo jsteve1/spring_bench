@@ -53,7 +53,7 @@ After each run the orchestrator:
 
 ## 3. Micrometer / Actuator (live dashboard feed)
 
-- Add Spring Boot Actuator + Micrometer to **both** shells (available in Boot 2.7 and 3.5).
+- Add Spring Boot Actuator + Micrometer to **both** shells (available in Boot 2.7 and 4.1).
 - Expose only safe endpoints: `health`, `info`, `metrics`, `prometheus`.
 - Tag every metric with `runtime`, `threading`, `footprint` so the dashboard can group by matrix
   dimension.
@@ -99,7 +99,7 @@ A benchmark is only useful if it is **fair, repeatable, and isolates one variabl
   "target": "java21-virtual-low",
   "config": { "runtime": "21", "threading": "virtual", "cpus": 0.5, "memLimit": "256m", "xmx": "192m", "arch": "amd64" },
   "load": { "mode": "sse", "vus": 500, "rampStages": "0:30s,full:2m,0:30s", "duration": "3m", "dropRate": 0.1 },
-  "env": { "jdk": "Temurin 21.0.x", "springBoot": "3.5.x", "gc": "G1", "host": "ubuntu-22.04", "dockerEngine": "27.x" },
+  "env": { "jdk": "Temurin 21.0.x", "springBoot": "4.1.x", "gc": "G1", "host": "ubuntu-22.04", "dockerEngine": "27.x" },
   "client": { "rps": 4200, "latencyMs": { "p50": 8, "p95": 31, "p99": 95 }, "errorRate": 0.001, "dataReceivedMb": 512 },
   "server": { "cpuPctPeak": 96, "memMbPeak": 240, "threadsPeak": 512, "gcPauseMsTotal": 180,
               "contextSwitchRate": 12000, "monitorContendedMs": 5, "vthreadPinnedCount": 0 },

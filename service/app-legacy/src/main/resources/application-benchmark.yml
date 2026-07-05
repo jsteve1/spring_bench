@@ -1,0 +1,8 @@
+spring:
+  config:
+    activate:
+      on-profile: benchmark
+
+bench:
+  seed:
+    enabled: true
