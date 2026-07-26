@@ -13,11 +13,16 @@ import {
 } from "./targets.js";
 import { collectMatrixStats } from "./stats.js";
 import { queueLoadTest } from "./loadtest.js";
+import { authEnabled, basicAuth, verifyWsClient } from "./basicAuth.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const server = createServer(app);
-const wss = new WebSocketServer({ server, path: "/api/stats/stream" });
+const wss = new WebSocketServer({
+  server,
+  path: "/api/stats/stream",
+  verifyClient: verifyWsClient,
+});
 
 const PORT = process.env.PORT || 3000;
 const RUNS_DIR = process.env.RUNS_DIR || path.join(__dirname, "..", "runs");
@@ -28,6 +33,7 @@ const STATS_INTERVAL_MS = Number(process.env.STATS_INTERVAL_MS || 2000);
 fs.mkdirSync(RUNS_DIR, { recursive: true });
 
 app.use(express.json());
+app.use(basicAuth);
 
 if (fs.existsSync(DASHBOARD_DIST)) {
   app.use(express.static(DASHBOARD_DIST));
@@ -176,5 +182,8 @@ wss.on("connection", (socket) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`Orchestrator listening on :${PORT} (docker socket: ${dockerAvailable()})`);
+  console.log(
+    `Orchestrator listening on :${PORT} (docker socket: ${dockerAvailable()}, ` +
+      `auth: ${authEnabled ? "basic" : "off"})`,
+  );
 });
