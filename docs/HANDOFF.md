@@ -87,10 +87,12 @@ on desktop Docker 29.6.1 (2026-07-26)**; ready to merge.
    instead of a shared Basic password. Needs `Access: Apps and Policies: Edit` on the API token
    (then rerun `setup-tunnel.ps1` with `-AccessEmail`), or a few clicks in Zero Trust.
 
-3. **Broaden the comparison** — the Java 21 virtual-vs-platform A/B is recorded (`docs/01 §4.2`).
-   Next: the legacy shell (`java8-platform-low`, `java11-platform-low`) for the Boot 2.7 vs 4.1
-   story, the `-high` footprint pair, and `java25-virtual-amd64-low` vs the ARM row. Repeat each
-   cell 3+ times before quoting numbers anywhere.
+3. **Saturate the load** — the first full sweep is recorded in **`docs/12-benchmark-report.md`**
+   (5 runtimes, 23 runs, medians of 3). Its main limitation is that `rest.js` paces itself with
+   `sleep(0.2)` at 10 VUs, so every runtime lands at ~42 rps and none of the numbers are capacity
+   figures. Remove the sleep or push VUs into the hundreds, and scale SSE to 200–1000 connections,
+   which is where virtual threads should actually separate. `java25`, the `-high` rows, and the
+   ARM/amd64 pair are still unmeasured.
 
 ### P1 — Cleaner science & polish
 
