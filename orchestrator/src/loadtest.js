@@ -145,7 +145,7 @@ async function runK6(runId, request) {
   if (request.mode === "sse") {
     if (!(await imageExists(image))) {
       throw new Error(
-        `SSE image '${image}' not found. Build with: docker build -f loadtests/Dockerfile.k6-sse -t bench/k6-sse .`,
+        `SSE image '${image}' not found. Build with: docker compose --profile tools build k6-sse`,
       );
     }
   } else {

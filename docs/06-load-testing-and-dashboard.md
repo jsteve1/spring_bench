@@ -27,9 +27,9 @@ Use the **`xk6-sse`** extension and build a custom k6 binary:
 
 ```dockerfile
 # loadtests/Dockerfile.k6-sse — custom k6 with SSE support
-FROM grafana/xk6:1.1.6 AS build
-ENV GOTOOLCHAIN=auto
-RUN xk6 build --k6-version v1.8.0 --with github.com/phymbert/xk6-sse@v0.1.12 --output /tmp/k6
+# k6 v1.8.0 needs Go >= 1.25 → use grafana/xk6:1.4.7
+FROM grafana/xk6:1.4.7 AS build
+RUN xk6 build v1.8.0 --with github.com/phymbert/xk6-sse@v0.1.11 -o /tmp/k6
 FROM grafana/k6:1.8.0
 USER root
 COPY --from=build /tmp/k6 /usr/bin/k6
