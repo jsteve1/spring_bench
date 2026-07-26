@@ -15,6 +15,7 @@ Two scripts, both fully parameterized via env (orchestrator passes `-e KEY=VALUE
 | `RAMP_STAGES` | Ramp-up steps, e.g. `0:30s,full:2m,0:30s` → translated to k6 `stages` |
 | `DURATION` | Total test duration |
 | `DROP_RATE` | Connection drop probability (0.0–1.0) to simulate flaky clients |
+| `THINK_TIME` | REST only: seconds to sleep after each iteration. **`0` = capacity mode** (default). `0.2` reproduces the paced first sweep (~42 rps). |
 
 ### 1.1 `rest.js`
 - Exercises the CRUD contract (`docs/04 §2`) with a **light** read/write mix (as shipped: `/health`,

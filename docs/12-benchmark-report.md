@@ -184,8 +184,16 @@ difference: a virtual thread unmounting is a continuation yield, which JFR does 
 
 ## 6. Next experiments, in value order
 
-1. **Saturate the server.** Drop `sleep(0.2)` or push VUs to 200+ so p95 and rps become capacity
-   figures. Until then Java 8 and Java 21 look equally fast on throughput, which is misleading.
+1. **Capacity mode is wired** (`THINK_TIME=0` default in `rest.js` / orchestrator / dashboard /
+   `run-benchmarks.ps1 -ThinkTime`). First smoke (50 VUs, 25s, one-variable Java 21 pair):
+
+   | Target | rps | p95 | notes |
+   | :-- | --: | --: | :-- |
+   | `java21-virtual-low` | ~95 | ~506 ms | completed |
+   | `java21-platform-low` | ~29 | ~1.9 s | same cgroup class; k6 p95 threshold tripped |
+
+   Re-run `.\scripts\run-benchmarks.ps1 -Vus 50 -ThinkTime 0` (then 100+) for medians of 3 and
+   append a capacity section here.
 2. **Scale SSE to 200–1000 connections.** This is where virtual threads should separate decisively,
    and where §4.3's memory result may well invert.
 3. **5+ reps on the context-switch metric**, or switch from peak to windowed mean, so §5.2 resolves.
@@ -201,9 +209,9 @@ difference: a virtual thread unmounting is a continuation yield, which JFR does 
 
 ```powershell
 docker compose -f docker-compose.yml -f docker-compose.extra.yml up -d --build orchestrator
-.\scripts\run-benchmarks.ps1                     # ~35 min, writes scripts/bench-manifest.json
-node scripts\analyze-benchmarks.mjs              # medians per cell
-node scripts\analyze-benchmarks.mjs --json       # machine-readable
+.\scripts\run-benchmarks.ps1 -Vus 50 -ThinkTime 0   # capacity sweep (~same wall clock as first report)
+# or omit -ThinkTime / pass -ThinkTime 0.2 to reproduce the paced ~42 rps sweep
+node scripts\analyze-benchmarks.mjs
 ```
 
 Per-run artifacts stay in `orchestrator/runs/{runId}/`: k6 `summary.json`, sampled
