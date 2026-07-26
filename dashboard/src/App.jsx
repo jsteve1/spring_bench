@@ -59,7 +59,10 @@ export default function App() {
           {targets.map((t) => (
             <li key={t.name}>
               <strong>{t.name}</strong>
+              <span className={`badge badge-${t.state}`}>{t.state}</span>
               <span>port {t.port}</span>
+              {t.health?.status && <span>{t.health.status}</span>}
+              {t.health?.javaVersion && <span>Java {t.health.javaVersion}</span>}
             </li>
           ))}
         </ul>

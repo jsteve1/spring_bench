@@ -14,7 +14,7 @@ This document captures what the previous agent built, what is stubbed, and the *
 | `service/` multi-module | **Done (MVP)** | Core + both shells; contract integration tests green |
 | `apps/` artifacts | **Local only** | JARs gitignored; run `service/build-all.ps1` after clone |
 | `docker-compose.yml` | **Done (PIN-02)** | All Temurin + cloudflared images digest-pinned |
-| `orchestrator/` | **Stub** | Express API skeleton; Docker socket **not** wired |
+| `orchestrator/` | **Partial (ORCH-02/03)** | Docker socket wired; targets list + start/stop/restart; stats stream still stub |
 | `dashboard/` | **Stub** | React + Chart.js scaffold; needs `npm run build` for orchestrator static serve |
 | `loadtests/` | **Stub** | `rest.js` / `sse.js` present; `bench/k6-sse` image not built in CI |
 | Tests | **Partial** | PERSIST-06 + LEGACY-07/MODERN-06 contract tests; OpenAPI signature diff green |
@@ -31,7 +31,7 @@ This document captures what the previous agent built, what is stubbed, and the *
 | 1 | `build-all` → `./apps/` | ✅ (run locally; JARs not in git) |
 | 2 | Identical contract / OpenAPI diff empty | ✅ `scripts/openapi-diff.mjs` (contract signature compare) |
 | 3 | `docker compose config` validates | ✅ all matrix images digest-pinned |
-| 4 | Orchestrator + matrix start/stoppable | ⚠️ matrix smoke OK; orchestrator stub only |
+| 4 | Orchestrator + matrix start/stoppable | ✅ ORCH-02/03 via `/api/targets` + start/stop/restart |
 | 5 | k6 load test + live/historical metrics + JFR | ❌ |
 | 6 | Zero `SQLITE_BUSY` under load | ✅ `ConcurrentWriteLoadTest` |
 | 7 | cloudflared public hostname | ❌ |
@@ -41,19 +41,19 @@ This document captures what the previous agent built, what is stubbed, and the *
 
 ## Recommended next task (start here)
 
-### **Epic: Orchestrator + observability**
+### **Epic: Observability + load testing**
 
-**Goal:** Wire Docker control plane and begin JVM metrics collection.
+**Goal:** Live stats stream, JVM metrics, and k6 integration.
 
 **Stories (in order):**
 
-1. **ORCH-02 / ORCH-03** — Docker socket: `GET /api/targets`, start/stop/restart per matrix service.
+1. **ORCH-04** — Wire `/api/stats/stream` to real `docker stats` polling.
 2. **OBS-01** — Micrometer matrix tags on both shells; scrape from orchestrator.
 3. **OBS-02** — JFR flags merged into compose `JAVA_OPTS`.
 4. **LOAD-01 / ORCH-05** — k6 REST load test triggered from orchestrator.
-5. **PERSIST-07 / CORE-03** — Optional DAO + domain unit tests.
+5. **DASH-02** — Dashboard start/stop buttons wired to orchestrator API.
 
-**Acceptance:** Orchestrator lists matrix fleet; one target start/stop works; Actuator metrics visible in orchestrator stream.
+**Acceptance:** Live stats stream shows real CPU/mem; one k6 run launchable from orchestrator.
 
 ---
 
@@ -73,9 +73,10 @@ $env:MODERN_URL = "http://localhost:8090"
 # start both JARs on those ports, then:
 .\scripts\openapi-diff.ps1
 
-# Docker matrix (after build)
+# Docker matrix + orchestrator (after build)
 docker compose config
-docker compose up -d java21-virtual-low
+docker compose up -d orchestrator java21-virtual-low
+curl http://localhost:3000/api/targets
 curl http://localhost:8087/health
 ```
 
@@ -120,7 +121,16 @@ curl http://localhost:8087/health
 
 ---
 
-## Completed this session (2026-07-05, contract epic)
+## Completed this session (2026-07-05, orchestrator epic)
+
+- **ORCH-02:** `GET /api/targets` — Docker container state + `/health` from matrix-net.
+- **ORCH-03:** `POST /api/targets/{name}/start|stop|restart` via dockerode.
+- Dashboard targets panel shows state badge + health summary.
+- Merged PR #3 (contract tests + PIN-02 complete).
+
+---
+
+## Completed prior session (2026-07-05, contract epic)
 
 - **LEGACY-07:** REST-assured contract tests (happy path, 400/404/409, pagination, OpenAPI).
 - **MODERN-06:** RestTestClient contract tests (parallel coverage; Boot 4 test client).
