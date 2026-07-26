@@ -27,11 +27,13 @@ Use the **`xk6-sse`** extension and build a custom k6 binary:
 
 ```dockerfile
 # loadtests/Dockerfile.k6-sse — custom k6 with SSE support
-FROM grafana/xk6:latest AS build
-RUN xk6 build v0.58.0 \           # pin a k6 1.x core version compatible with xk6-sse
-    --with github.com/phymbert/xk6-sse
+FROM grafana/xk6:1.1.6 AS build
+ENV GOTOOLCHAIN=auto
+RUN xk6 build --k6-version v1.8.0 --with github.com/phymbert/xk6-sse@v0.1.12 --output /tmp/k6
 FROM grafana/k6:1.8.0
-COPY --from=build /xk6 /usr/bin/k6
+USER root
+COPY --from=build /tmp/k6 /usr/bin/k6
+USER k6
 ```
 - `sse.js` imports `sse` from `k6/x/sse`, opens and **holds** `/events` connections for the full
   `DURATION`, and counts received events — this is what surfaces parked-connection memory footprint.
@@ -58,8 +60,9 @@ name, e.g.:
 docker run --rm --network matrix-net \
   -e TARGET=http://java21-virtual-low:8080 -e VUS=500 -e DURATION=3m \
   -e RAMP_STAGES="0:30s,full:2m,0:30s" -e DROP_RATE=0.1 \
-  -v $PWD/loadtests:/scripts grafana/k6:1.8.0 run /scripts/sse.js
+  -v $PWD/loadtests:/scripts bench/k6-sse run /scripts/sse.js
 ```
+Build the SSE image first: `docker compose --profile tools build k6-sse`.
 
 ---
 

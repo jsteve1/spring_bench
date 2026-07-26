@@ -73,6 +73,9 @@ function summarizeK6(summary) {
   const iters = pick(m.iterations);
   const failed = pick(m.http_req_failed);
   const received = pick(m.data_received);
+  const sseEvents = pick(m.sse_events);
+  const sseConnections = pick(m.sse_connections);
+  const sseDrops = pick(m.sse_drops);
   return {
     rps: reqs.rate ?? null,
     iterations: iters.count ?? null,
@@ -85,6 +88,11 @@ function summarizeK6(summary) {
     dataReceivedMb: received.count
       ? Math.round((received.count / (1024 * 1024)) * 100) / 100
       : null,
+    sse: {
+      events: sseEvents.count ?? null,
+      connections: sseConnections.count ?? null,
+      drops: sseDrops.count ?? null,
+    },
   };
 }
 

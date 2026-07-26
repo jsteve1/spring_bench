@@ -249,6 +249,14 @@ services:
       - "3000:3000"
     restart: unless-stopped
 
+  # Build-only: docker compose --profile tools build k6-sse
+  k6-sse:
+    profiles: [tools]
+    image: bench/k6-sse
+    build:
+      context: .
+      dockerfile: loadtests/Dockerfile.k6-sse
+
   cloudflared:
     profiles: [tunnel]
     image: cloudflare/cloudflared:2026.6.1@sha256:6d91c121b803126f7a5344005d17a9324788fc09d305b6e2560ec6040a7ae283
