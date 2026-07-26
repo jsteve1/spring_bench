@@ -45,6 +45,26 @@ export function emptyPeaks() {
   };
 }
 
+/** Compact one stats frame for persistence (OBS-05). */
+export function trimSeriesSample(sample, ts = new Date().toISOString()) {
+  if (!sample) {
+    return null;
+  }
+  return {
+    ts,
+    cpuPct: sample.cpuPct ?? null,
+    memMb: sample.memMb ?? null,
+    threads: sample.threads ?? null,
+    heapUsedMb: sample.heapUsedMb ?? null,
+    gcPauseCount: sample.gcPauseCount ?? null,
+    gcPauseTotalMs: sample.gcPauseTotalMs ?? null,
+    contextSwitchRate: sample.contextSwitchRate ?? null,
+    blockedRate: sample.blockedRate ?? null,
+    waitedRate: sample.waitedRate ?? null,
+    pids: sample.pids ?? null,
+  };
+}
+
 export function mapJfrToServerFields(aggregates) {
   if (!aggregates) {
     return {};

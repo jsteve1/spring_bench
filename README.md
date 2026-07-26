@@ -106,6 +106,21 @@ spring_bench/
 - Versions are authoritative in `docs/01-version-matrix.md`; re-verify upstream before release.
 Implementation status and next steps: **`docs/HANDOFF.md`**.
 
+## Definition of Done (traceability)
+
+| # | Item | How we verify |
+| :--: | :-- | :-- |
+| 1 | `build-all` → `apps/` | `service/build-all.sh` / CI `service` job |
+| 2 | OpenAPI parity | `scripts/openapi-diff.mjs` / CI `openapi` job |
+| 3 | Compose digests | `docker compose config` / CI `compose` job |
+| 4 | Orchestrator start/stop | Manual / Docker host |
+| 5 | k6 + live + JFR + history | Load form + compare UI; JFR + `stats-series.json` on runs |
+| 6 | No `SQLITE_BUSY` | Service write-load test |
+| 7 | cloudflared | `docker compose --profile tunnel` + `TUNNEL_TOKEN` |
+| 8 | Standalone auth | `./scripts/smoke-standalone.sh` |
+
+GitHub Actions workflow: `.github/workflows/ci.yml`.
+
 ## Orchestrator choice
 
 Node.js + Express was chosen for fast iteration on Docker/k6 wiring. A Spring Boot orchestrator

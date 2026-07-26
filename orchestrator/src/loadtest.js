@@ -5,7 +5,7 @@ import { getDocker } from "./dockerClient.js";
 import { demuxDockerStream } from "./dockerStream.js";
 import { collectJfr } from "./jfr.js";
 import { containerStatsSnapshot } from "./stats.js";
-import { emptyPeaks, mapJfrToServerFields, mergePeaks } from "./runPeaks.js";
+import { emptyPeaks, mapJfrToServerFields, mergePeaks, trimSeriesSample } from "./runPeaks.js";
 
 const RUNS_DIR = process.env.RUNS_DIR || path.join(process.cwd(), "runs");
 const ORCHESTRATOR_NAME = process.env.ORCHESTRATOR_CONTAINER || "orchestrator";
@@ -207,7 +207,7 @@ async function runK6(runId, request) {
   const peaksPromise = sampleTargetPeaks(request.targetName, stopSignal);
   const exitCode = await waitContainer(container);
   stopSignal.stopped = true;
-  const peaks = await peaksPromise;
+  const { peaks, series } = await peaksPromise;
 
   let logs = "";
   try {
@@ -228,6 +228,8 @@ async function runK6(runId, request) {
     summary = JSON.parse(fs.readFileSync(summaryPath, "utf8"));
   }
 
+  const seriesRel = writeStatsSeries(runId, request.targetName, series);
+
   return {
     exitCode,
     logs,
@@ -235,17 +237,38 @@ async function runK6(runId, request) {
     peaks,
     artifacts: {
       k6Summary: `runs/${runId}/summary.json`,
+      statsSeries: seriesRel,
     },
   };
 }
 
+function writeStatsSeries(runId, targetName, series) {
+  const outDir = path.join(RUNS_DIR, runId);
+  fs.mkdirSync(outDir, { recursive: true });
+  const file = path.join(outDir, "stats-series.json");
+  const payload = {
+    runId,
+    target: targetName,
+    sampledAt: new Date().toISOString(),
+    intervalMs: 2000,
+    samples: series,
+  };
+  fs.writeFileSync(file, JSON.stringify(payload, null, 2));
+  return `runs/${runId}/stats-series.json`;
+}
+
 async function sampleTargetPeaks(targetName, stopSignal) {
   let peaks = emptyPeaks();
+  const series = [];
   // Prime rate windows, then poll until k6 exits.
   while (!stopSignal.stopped) {
     try {
       const snap = await containerStatsSnapshot(targetName);
       peaks = mergePeaks(peaks, snap);
+      const point = trimSeriesSample(snap);
+      if (point) {
+        series.push(point);
+      }
     } catch {
       // ignore transient docker/actuator failures during the run
     }
@@ -254,10 +277,14 @@ async function sampleTargetPeaks(targetName, stopSignal) {
   try {
     const snap = await containerStatsSnapshot(targetName);
     peaks = mergePeaks(peaks, snap);
+    const point = trimSeriesSample(snap);
+    if (point) {
+      series.push(point);
+    }
   } catch {
     // ignore
   }
-  return peaks;
+  return { peaks, series };
 }
 
 export function queueLoadTest(body) {
