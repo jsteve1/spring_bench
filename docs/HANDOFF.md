@@ -9,13 +9,14 @@
 | Layer | Status | Notes |
 | :-- | :-- | :-- |
 | Docs / version pins | **Done** | Boot **4.1.0** / **2.7.18**; Java LTS matrix |
-| `service/` | **Done (MVP)** | Contract tests + Micrometer/Prometheus + matrix tags |
-| `docker-compose.yml` | **Done** | Digest pins + `BENCH_*` env tags + `k6-sse` tools profile |
-| `orchestrator/` | **ORCH-02..05** | Docker control, live stats+JVM scrape, **REST + SSE k6 launch** |
-| `dashboard/` | **DASH-02/03/05** | Controls + load form + charts + **historical compare** |
-| Load tests | **LOAD-01..03** | `rest.js` + `sse.js` (`k6/x/sse`) + `bench/k6-sse` image |
-| Observability | **OBS-01..04** | Tags + Actuator scrape + **JFR dump/collect after k6** |
-| Standalone / tunnel | **Not started** | DoD #7/#8 |
+| `service/` | **Done (MVP + standalone auth)** | Contract tests + Micrometer + **HTTP Basic in `standalone`** |
+| `docker-compose.yml` | **Done** | Digest pins + `BENCH_*` + `k6-sse` + `cloudflared` tunnel profile |
+| `orchestrator/` | **ORCH-02..05** | Docker control, live stats+JVM scrape, REST + SSE k6 |
+| `dashboard/` | **DASH-02/03/05** | Controls + load form + charts + historical compare |
+| Load tests | **LOAD-01..03** | `rest.js` + `sse.js` + `bench/k6-sse` |
+| Observability | **OBS-01..04** | Tags + Actuator scrape + JFR dump/collect |
+| Tunnel | **TUNNEL-01/02 docs** | Compose profile + `.env.example` (needs real `TUNNEL_TOKEN`) |
+| Standalone | **STAND-01..03/05** | Persistent DB path, seed off, Basic auth, CORS origins |
 
 ---
 
@@ -29,30 +30,27 @@
 | 4 | orchestrator start/stop | ✅ |
 | 5 | k6 + live metrics + JFR | ⚠️ REST+SSE+live+JFR+compare ✅; live CS/lock charts still thin |
 | 6 | SQLITE_BUSY test | ✅ |
-| 7 | cloudflared | ❌ |
-| 8 | standalone auth | ❌ |
+| 7 | cloudflared | ⚠️ wired; needs token on a Docker host |
+| 8 | standalone auth | ✅ smoke via `scripts/smoke-standalone.sh` |
 
 ---
 
 ## Recommended next task
 
-1. Wire live context-switch / lock-contention into real-time charts (DoD #5 charts).
-2. DoD #7/#8 — tunnel + standalone auth.
-3. Persist peak mem/threads onto run records from the stats stream (improves compare columns).
+1. Wire live context-switch / lock-contention into real-time charts (DASH-04 remainder).
+2. Persist peak mem/threads onto run records from the stats stream.
+3. Run tunnel end-to-end with a real Cloudflare token when Docker is available.
 
 ---
 
-## How to verify this slice (DASH-05, no Docker)
+## How to verify standalone (no Docker)
 
 ```bash
-cd dashboard && npm install && npm run test:unit && npm run build
-npm run dev
-# Open UI → Historical comparison → "Load demo runs" → select ≥2 runs
+cd service && ./build-all.sh   # or mvn -pl app-modern -am package -DskipTests
+./scripts/smoke-standalone.sh
 ```
 
-With orchestrator + completed runs: `GET /api/runs` feeds the same selector (warmup/`phase=warmup` excluded).
-
-SSE image: `docker compose --profile tools build k6-sse`
+Expect: `/health` open, unauthenticated write → `401`, Basic auth write → `201` with `updatedBy=admin`, `/seed` → `403`.
 
 ---
 
@@ -60,9 +58,7 @@ SSE image: `docker compose --profile tools build k6-sse`
 
 | Path | Purpose |
 | :-- | :-- |
-| `dashboard/src/RunCompare.jsx` | DASH-05 multi-run compare (bars + table) |
-| `dashboard/src/runMeta.js` | Target dim parse + metric flatten |
-| `dashboard/src/fixtures/demoRuns.js` | Offline demo history |
-| `loadtests/Dockerfile.k6-sse` | Custom k6 1.8.0 + xk6-sse |
-| `loadtests/sse.js` | Long-lived `/events` hold + DROP_RATE |
-| `orchestrator/src/jfr.js` | Post-run JFR dump + aggregates |
+| `service/app-*/config/SecurityConfig.java` | HTTP Basic when `app.security.enabled` |
+| `scripts/smoke-standalone.sh` | DoD #8 offline check |
+| `dashboard/src/RunCompare.jsx` | DASH-05 compare UI |
+| `loadtests/Dockerfile.k6-sse` | Custom k6 + xk6-sse |

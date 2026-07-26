@@ -37,11 +37,18 @@ JARs land in `./apps/` (`insurance-j8.jar` … `insurance-modern.jar`).
 
 ### 2. Run standalone (no Docker)
 
-```powershell
-$env:SPRING_PROFILES_ACTIVE = "standalone"
-$env:DB_PATH = ".\data\office.db"
-java -jar apps\insurance-modern.jar
+```bash
+mkdir -p data
+SPRING_PROFILES_ACTIVE=standalone \
+DB_PATH=./data/office.db \
+APP_ADMIN_USER=admin \
+APP_ADMIN_PASSWORD='changeme' \
+java -jar apps/insurance-modern.jar
 ```
+
+- `GET /health` is open.
+- Writes (`POST/PUT/DELETE`) require HTTP Basic (`APP_ADMIN_USER` / `APP_ADMIN_PASSWORD`).
+- `/seed` is disabled under `standalone` (enable only via `bench.seed.enabled=true` if you intentionally want it).
 
 Open `http://localhost:8080/health` and `http://localhost:8080/swagger-ui.html`.
 
@@ -55,7 +62,17 @@ docker compose up -d java21-virtual-low   # example target
 
 Matrix services listen on host ports **8081–8090**. Orchestrator dashboard API: `http://localhost:3000`.
 
-### 4. Dashboard (dev)
+### 4. Public tunnel (optional)
+
+```bash
+cp .env.example .env   # set TUNNEL_TOKEN
+docker compose --profile tunnel up -d
+```
+
+See `infra/cloudflared/README.md`. Put Cloudflare Access in front of the hostname — the
+orchestrator mounts the Docker socket.
+
+### 5. Dashboard (dev)
 
 ```bash
 cd orchestrator && npm install && npm start

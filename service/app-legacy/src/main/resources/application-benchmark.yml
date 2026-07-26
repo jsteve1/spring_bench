@@ -6,3 +6,7 @@ spring:
 bench:
   seed:
     enabled: true
+
+app:
+  security:
+    enabled: false
