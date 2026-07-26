@@ -17,7 +17,9 @@ Two scripts, both fully parameterized via env (orchestrator passes `-e KEY=VALUE
 | `DROP_RATE` | Connection drop probability (0.0–1.0) to simulate flaky clients |
 
 ### 1.1 `rest.js`
-- Exercises the CRUD contract (`docs/04 §2`) with a configurable read/write mix.
+- Exercises the CRUD contract (`docs/04 §2`) with a **light** read/write mix (as shipped: `/health`,
+  paginated `GET /members`, and member create on ~1/5 VUs). Enough to stress SQLite WAL concurrency;
+  not a full CRUD fuzz suite.
 - Use `ramping-vus` executor built from `RAMP_STAGES`.
 - Thresholds on `http_req_duration` (p95/p99) and `http_req_failed`.
 
@@ -35,16 +37,18 @@ USER root
 COPY --from=build /tmp/k6 /usr/bin/k6
 USER k6
 ```
-- `sse.js` imports `sse` from `k6/x/sse`, opens and **holds** `/events` connections for the full
-  `DURATION`, and counts received events — this is what surfaces parked-connection memory footprint.
-- Randomly drops/reopens a fraction of connections per `DROP_RATE`.
+- `sse.js` imports `sse` from `k6/x/sse`, opens and **holds** `/events` for `HOLD`/`DURATION`,
+  and counts received events — this is what surfaces parked-connection memory footprint.
+- Randomly closes a fraction of connections early per `DROP_RATE` (flaky-client simulation).
 - This is the headline test: platform threads (one OS thread per held connection) vs virtual
   threads (cheap parked continuations) diverge sharply here.
-- **Fallback if extensions are undesirable:** model SSE as a long-lived raw TCP/HTTP read using a
-  k6 scenario with a high `gracefulStop` and per-VU `sleep` to keep iterations open. Document
-  whichever approach is chosen; the extension path is preferred for fidelity.
-- Build the image once: `docker build -f loadtests/Dockerfile.k6-sse -t bench/k6-sse .` and use
-  `bench/k6-sse` instead of `grafana/k6:1.8.0` for SSE runs.
+- **Build status (`main`):** `bench/k6-sse` builds via `docker compose --profile tools build k6-sse`
+  (`xk6-sse@v0.1.11`). Orchestrator launches **one** SSE container per loadtest today.
+- **Known limit:** `xk6-sse` does not reliably multiplex many concurrent held connections in a
+  single k6 process. For faithful high-VU SSE, prefer **one container per VU** (fan-out) and merge
+  summaries — see open PR **#9** / `docs/HANDOFF.md`. Until fan-out lands, keep SSE VUs small when
+  validating.
+- Build: `docker build -f loadtests/Dockerfile.k6-sse -t bench/k6-sse .` (or compose profile above).
 
 ### 1.3 Output
 - Emit a machine-readable summary (`handleSummary` → JSON) the orchestrator ingests: p50/p95/p99

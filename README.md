@@ -104,22 +104,25 @@ spring_bench/
 - **Two thin shells** wrap the core: legacy (Boot 2.7) vs modern (Boot 4.1).
 - **SQLite WAL** with a single-writer pool isolates JVM concurrency from network DB noise.
 - Versions are authoritative in `docs/01-version-matrix.md`; re-verify upstream before release.
-Implementation status and next steps: **`docs/HANDOFF.md`**.
+- **Build status & next tasks for agents:** [`docs/HANDOFF.md`](docs/HANDOFF.md).
 
 ## Definition of Done (traceability)
 
-| # | Item | How we verify |
-| :--: | :-- | :-- |
-| 1 | `build-all` → `apps/` | `service/build-all.sh` / CI `service` job |
-| 2 | OpenAPI parity | `scripts/openapi-diff.mjs` / CI `openapi` job |
-| 3 | Compose digests | `docker compose config` / CI `compose` job |
-| 4 | Orchestrator start/stop | Manual / Docker host |
-| 5 | k6 + live + JFR + history | Load form + compare UI; JFR + `stats-series.json` on runs |
-| 6 | No `SQLITE_BUSY` | Service write-load test |
-| 7 | cloudflared | `docker compose --profile tunnel` + `TUNNEL_TOKEN` |
-| 8 | Standalone auth | `./scripts/smoke-standalone.sh` |
+| # | Item | Status | How we verify |
+| :--: | :-- | :--: | :-- |
+| 1 | `build-all` → `apps/` | ✅ | `service/build-all.sh` / CI `service` job |
+| 2 | OpenAPI parity | ✅ | `scripts/openapi-diff.mjs` / CI `openapi` job |
+| 3 | Compose digests | ✅ | `docker compose config` / CI `compose` job |
+| 4 | Orchestrator start/stop | ✅ code | Manual / Docker host E2E |
+| 5 | k6 + live + JFR + history | ✅ MVP | Load form + compare UI; JFR + `stats-series.json` |
+| 6 | No `SQLITE_BUSY` | ✅ | `ConcurrentWriteLoadTest` |
+| 7 | cloudflared | ⚠️ wired | `docker compose --profile tunnel` + real `TUNNEL_TOKEN` |
+| 8 | Standalone auth | ✅ | `./scripts/smoke-standalone.sh` |
 
-GitHub Actions workflow: `.github/workflows/ci.yml`.
+GitHub Actions workflow: `.github/workflows/ci.yml` (green on `main` after PR #8).
+
+**Next up (operators / agents):** desktop Docker E2E → rebase/merge SSE fan-out (PR #9) → prove
+tunnel DoD #7. Details in `docs/HANDOFF.md`.
 
 ## Orchestrator choice
 
