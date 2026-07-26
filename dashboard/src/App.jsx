@@ -11,6 +11,9 @@ import {
 } from "chart.js";
 import { Line } from "react-chartjs-2";
 
+import RunCompare from "./RunCompare.jsx";
+import { DEMO_RUNS } from "./fixtures/demoRuns.js";
+
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
 const COLORS = [
@@ -39,6 +42,7 @@ export default function App() {
   const [targets, setTargets] = useState([]);
   const [stats, setStats] = useState([]);
   const [runs, setRuns] = useState([]);
+  const [demoMode, setDemoMode] = useState(false);
   const [busy, setBusy] = useState(null);
   const [error, setError] = useState(null);
   const [loadForm, setLoadForm] = useState(defaultLoadForm);
@@ -57,11 +61,14 @@ export default function App() {
   }, []);
 
   const refreshRuns = useCallback(() => {
+    if (demoMode) {
+      return;
+    }
     fetch("/api/runs")
       .then((r) => r.json())
       .then(setRuns)
       .catch(() => {});
-  }, []);
+  }, [demoMode]);
 
   useEffect(() => {
     refreshTargets();
@@ -284,6 +291,21 @@ export default function App() {
 
       <section>
         <h2>Recent runs</h2>
+        {demoMode && (
+          <p className="note">
+            Showing demo runs.{" "}
+            <button
+              type="button"
+              className="linkish"
+              onClick={() => {
+                setDemoMode(false);
+                refreshRuns();
+              }}
+            >
+              Back to live history
+            </button>
+          </p>
+        )}
         <ul className="runs">
           {runs.slice(0, 8).map((r) => (
             <li key={r.runId}>
@@ -292,11 +314,20 @@ export default function App() {
               <span>{r.config?.mode || r.request?.mode}</span>
               {r.client?.latencyMs?.p95 != null && <span>p95 {Math.round(r.client.latencyMs.p95)}ms</span>}
               {r.client?.rps != null && <span>{Math.round(r.client.rps)} rps</span>}
+              {r.client?.sse?.events != null && <span>{r.client.sse.events} sse evt</span>}
               {r.error && <span className="error-inline">{r.error}</span>}
             </li>
           ))}
         </ul>
       </section>
+
+      <RunCompare
+        runs={runs}
+        onUseDemo={(demo) => {
+          setDemoMode(true);
+          setRuns(demo || DEMO_RUNS);
+        }}
+      />
 
       <section>
         <h2>CPU %</h2>

@@ -12,6 +12,20 @@ const K6_REST_IMAGE = process.env.K6_REST_IMAGE || "grafana/k6:1.8.0";
 const K6_SSE_IMAGE = process.env.K6_SSE_IMAGE || "bench/k6-sse";
 const LOADTESTS_IN_ORCH = process.env.LOADTESTS_PATH || "/loadtests";
 
+/** Parse `java21-virtual-low` / `java25-virtual-arm-low` into matrix dimensions. */
+export function parseTargetDims(target) {
+  const m = String(target || "").match(/^java(\d+)-(platform|virtual)(?:-(arm))?-(\w+)$/i);
+  if (!m) {
+    return { runtime: null, threading: null, footprint: null, arch: null };
+  }
+  return {
+    runtime: m[1],
+    threading: m[2].toLowerCase(),
+    arch: m[3] ? "arm64" : "amd64",
+    footprint: m[4].toLowerCase(),
+  };
+}
+
 function writeRecord(runId, record) {
   fs.mkdirSync(RUNS_DIR, { recursive: true });
   fs.writeFileSync(path.join(RUNS_DIR, `${runId}.json`), JSON.stringify(record, null, 2));
@@ -219,6 +233,7 @@ async function runK6(runId, request) {
 export function queueLoadTest(body) {
   const request = normalizeRequest(body);
   const runId = crypto.randomUUID();
+  const dims = parseTargetDims(request.targetName);
   const record = {
     runId,
     startedAt: new Date().toISOString(),
@@ -231,6 +246,10 @@ export function queueLoadTest(body) {
       duration: request.duration,
       rampStages: request.rampStages,
       dropRate: request.dropRate,
+      runtime: dims.runtime,
+      threading: dims.threading,
+      footprint: dims.footprint,
+      arch: dims.arch,
     },
     request,
   };

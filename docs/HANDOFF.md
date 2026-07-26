@@ -12,7 +12,7 @@
 | `service/` | **Done (MVP)** | Contract tests + Micrometer/Prometheus + matrix tags |
 | `docker-compose.yml` | **Done** | Digest pins + `BENCH_*` env tags + `k6-sse` tools profile |
 | `orchestrator/` | **ORCH-02..05** | Docker control, live stats+JVM scrape, **REST + SSE k6 launch** |
-| `dashboard/` | **DASH-02/03** | Controls + load-test form + charts (CPU/mem/threads/heap/GC) |
+| `dashboard/` | **DASH-02/03/05** | Controls + load form + charts + **historical compare** |
 | Load tests | **LOAD-01..03** | `rest.js` + `sse.js` (`k6/x/sse`) + `bench/k6-sse` image |
 | Observability | **OBS-01..04** | Tags + Actuator scrape + **JFR dump/collect after k6** |
 | Standalone / tunnel | **Not started** | DoD #7/#8 |
@@ -27,7 +27,7 @@
 | 2 | OpenAPI contract parity | ✅ |
 | 3 | compose config + digests | ✅ |
 | 4 | orchestrator start/stop | ✅ |
-| 5 | k6 + live metrics + JFR | ⚠️ REST+SSE+live+JFR ✅; historical compare UI ❌ |
+| 5 | k6 + live metrics + JFR | ⚠️ REST+SSE+live+JFR+compare ✅; live CS/lock charts still thin |
 | 6 | SQLITE_BUSY test | ✅ |
 | 7 | cloudflared | ❌ |
 | 8 | standalone auth | ❌ |
@@ -36,34 +36,23 @@
 
 ## Recommended next task
 
-1. **DASH-05** — Historical run comparison UI (client + JFR aggregates already on run records).
-2. Wire live context-switch / lock-contention into charts where feasible (DoD #5 charts).
-3. DoD #7/#8 — tunnel + standalone auth.
+1. Wire live context-switch / lock-contention into real-time charts (DoD #5 charts).
+2. DoD #7/#8 — tunnel + standalone auth.
+3. Persist peak mem/threads onto run records from the stats stream (improves compare columns).
 
 ---
 
-## How to verify this slice (SSE)
+## How to verify this slice (DASH-05, no Docker)
 
 ```bash
-docker compose --profile tools build k6-sse
-# confirm extension:
-docker run --rm bench/k6-sse version   # should list k6/x/sse
-
-docker compose up -d --build orchestrator java21-virtual-low
-curl -X POST http://localhost:3000/api/loadtest \
-  -H 'Content-Type: application/json' \
-  -d '{"mode":"sse","targetName":"java21-virtual-low","vus":5,"duration":"15s","rampStages":"0:3s,full:9s,0:3s","dropRate":0.1}'
-# poll GET /api/runs/{runId} — expect client.sse.events > 0 and artifacts.jfr
+cd dashboard && npm install && npm run test:unit && npm run build
+npm run dev
+# Open UI → Historical comparison → "Load demo runs" → select ≥2 runs
 ```
 
-Manual (no orchestrator):
+With orchestrator + completed runs: `GET /api/runs` feeds the same selector (warmup/`phase=warmup` excluded).
 
-```bash
-docker run --rm --network matrix-net \
-  -e TARGET=http://java21-virtual-low:8080 -e VUS=5 -e DURATION=15s \
-  -e RAMP_STAGES='0:3s,full:9s,0:3s' -e DROP_RATE=0.1 \
-  -v "$PWD/loadtests:/scripts:ro" bench/k6-sse run /scripts/sse.js
-```
+SSE image: `docker compose --profile tools build k6-sse`
 
 ---
 
@@ -71,8 +60,9 @@ docker run --rm --network matrix-net \
 
 | Path | Purpose |
 | :-- | :-- |
-| `loadtests/Dockerfile.k6-sse` | Custom k6 1.8.0 + xk6-sse@v0.1.11 |
+| `dashboard/src/RunCompare.jsx` | DASH-05 multi-run compare (bars + table) |
+| `dashboard/src/runMeta.js` | Target dim parse + metric flatten |
+| `dashboard/src/fixtures/demoRuns.js` | Offline demo history |
+| `loadtests/Dockerfile.k6-sse` | Custom k6 1.8.0 + xk6-sse |
 | `loadtests/sse.js` | Long-lived `/events` hold + DROP_RATE |
-| `scripts/build-k6-sse.sh` | One-shot image build |
-| `orchestrator/src/loadtest.js` | ORCH-05 k6 runner (REST + SSE summary fields) |
 | `orchestrator/src/jfr.js` | Post-run JFR dump + aggregates |

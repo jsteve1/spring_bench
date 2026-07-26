@@ -171,6 +171,136 @@ header h1 {
   font-size: 0.85rem;
 }
 
+.compare-head {
+  margin-bottom: 0.75rem;
+}
+
+.compare-sub {
+  color: #94a3b8;
+  margin: 0.25rem 0 0.75rem;
+}
+
+.compare-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.compare-actions button,
+button.linkish {
+  background: #0f172a;
+  color: #e2e8f0;
+  border: 1px solid #475569;
+  border-radius: 6px;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+button.linkish {
+  display: inline;
+  padding: 0.1rem 0.4rem;
+  margin-left: 0.35rem;
+}
+
+.compare-actions button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.compare-list {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin: 0 0 1rem;
+}
+
+.compare-list li {
+  background: #1e293b;
+  border-radius: 8px;
+  padding: 0.55rem 0.75rem;
+}
+
+.compare-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
+  cursor: pointer;
+}
+
+.compare-main {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  flex: 1;
+}
+
+.dim-chip {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 999px;
+  padding: 0.12rem 0.45rem;
+  color: #cbd5e1;
+}
+
+.compare-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  color: #94a3b8;
+  font-size: 0.85rem;
+}
+
+.compare-chart {
+  margin-top: 1.25rem;
+  background: #1e293b;
+  border-radius: 8px;
+  padding: 0.75rem 1rem 1rem;
+}
+
+.compare-chart h3,
+.compare-table-wrap h3 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+}
+
+.compare-table-wrap {
+  margin-top: 1.25rem;
+  overflow-x: auto;
+}
+
+.compare-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.compare-table th,
+.compare-table td {
+  border: 1px solid #334155;
+  padding: 0.45rem 0.55rem;
+  text-align: left;
+}
+
+.compare-table th {
+  background: #1e293b;
+}
+
+.compare-table td:first-child,
+.compare-table th:first-child {
+  position: sticky;
+  left: 0;
+  background: #0f172a;
+}
+
 section {
   margin-top: 2rem;
 }
