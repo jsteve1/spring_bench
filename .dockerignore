@@ -1,0 +1,18 @@
+# The orchestrator image builds from the repo root so it can also build the
+# dashboard, so keep the build context small.
+.git
+.github
+.tools
+apps/*.jar
+data
+docs
+infra
+runs
+orchestrator/runs
+service
+loadtests
+**/node_modules
+**/dist
+**/target
+*.log
+.env
