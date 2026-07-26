@@ -75,12 +75,17 @@ See `docs/01-version-matrix.md` §4.2 for the row list and the first recorded co
 ### 4. Public tunnel (optional)
 
 ```bash
-cp .env.example .env   # set TUNNEL_TOKEN
+cp .env.example .env
+# set ORCH_BASIC_USER + ORCH_BASIC_PASS (required), then either:
+#   CF_API_TOKEN=...  and run  .\scripts\setup-tunnel.ps1 -Hostname bench.example.com
+#   or paste a TUNNEL_TOKEN created in the Zero Trust dashboard
 docker compose --profile tunnel up -d
 ```
 
-See `infra/cloudflared/README.md`. Put Cloudflare Access in front of the hostname — the
-orchestrator mounts the Docker socket.
+**Set `ORCH_BASIC_USER`/`ORCH_BASIC_PASS` before exposing anything.** The orchestrator can stop
+containers through the Docker socket, so an unauthenticated hostname is a remote kill switch. Basic
+auth covers every route except `/health`, including the stats WebSocket. See
+`infra/cloudflared/README.md` for the token scopes and Cloudflare Access as an alternative.
 
 ### 5. Dashboard
 
@@ -126,7 +131,7 @@ spring_bench/
 | 4 | Orchestrator start/stop | ✅ code | Manual / Docker host E2E |
 | 5 | k6 + live + JFR + history | ✅ MVP | Load form + compare UI; JFR + `stats-series.json` |
 | 6 | No `SQLITE_BUSY` | ✅ | `ConcurrentWriteLoadTest` |
-| 7 | cloudflared | ⚠️ wired | `docker compose --profile tunnel` + real `TUNNEL_TOKEN` |
+| 7 | cloudflared | ✅ | `scripts/setup-tunnel.ps1` + `docker compose --profile tunnel up -d` |
 | 8 | Standalone auth | ✅ | `./scripts/smoke-standalone.sh` |
 
 GitHub Actions workflow: `.github/workflows/ci.yml` (green on `main` after PR #8).

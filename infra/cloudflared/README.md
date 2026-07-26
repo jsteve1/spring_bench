@@ -35,6 +35,20 @@ suffix rotates, so allow-list the `/64` rather than the `/128`.
 Omit `-AccessEmail` to provision the plumbing without publishing an unauthenticated endpoint — the
 hostname returns `530` until the connector starts, which is a safe place to pause.
 
+## Protecting the hostname
+
+The orchestrator can stop containers through the mounted Docker socket, so a public hostname must be
+authenticated. Two independent options:
+
+1. **Orchestrator Basic auth (no Cloudflare permissions needed).** Set `ORCH_BASIC_USER` and
+   `ORCH_BASIC_PASS` in `.env`. Every route except `/health` then requires HTTP Basic, including the
+   `/api/stats/stream` WebSocket upgrade. `/health` stays open so uptime checks work.
+2. **Cloudflare Access.** Requires `Access: Apps and Policies: Edit` on the token, or a few clicks in
+   Zero Trust → Access → Applications. Gives SSO and audit logging rather than a shared password.
+
+They compose fine — Access in front, Basic behind — but either alone is sufficient to avoid an open
+control plane. Basic auth is the one that works without further token surgery.
+
 ## Manual path
 
 1. `dash.cloudflare.com` → **Zero Trust** → **Networks → Connectors** (older UIs and some docs call

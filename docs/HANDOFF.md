@@ -23,7 +23,7 @@ on desktop Docker 29.6.1 (2026-07-26)**; ready to merge.
 | Load scripts | **Done (MVP)** | `loadtests/rest.js`, `sse.js` + `Dockerfile.k6-sse` (`xk6-sse@v0.1.11`); SSE runs **one container per VU** and merges summaries |
 | Standalone | **Done** | HTTP Basic on writes; `/seed` gated; `scripts/smoke-standalone.sh` |
 | CI | **Done** | `.github/workflows/ci.yml` — CI-01..03 (+ standalone smoke) |
-| Tunnel | **Wired, not proven** | Compose + `.env.example` + `infra/cloudflared/README.md` — needs real `TUNNEL_TOKEN` on a Docker host. Route the public hostname to `http://orchestrator:3000` (container DNS on `matrix-net`, **not** `localhost`), then put Cloudflare Access in front — the orchestrator drives the Docker socket. |
+| Tunnel | **Done** | `scripts/setup-tunnel.ps1` provisions tunnel + ingress + CNAME (+ Access when the token allows). Route target is `http://orchestrator:3000` (container DNS on `matrix-net`, **not** `localhost`). Hostname is guarded by orchestrator Basic auth (`ORCH_BASIC_USER`/`ORCH_BASIC_PASS`), which also covers the WebSocket upgrade. |
 
 ### Definition of Done
 
@@ -35,7 +35,7 @@ on desktop Docker 29.6.1 (2026-07-26)**; ready to merge.
 | 4 | Orchestrator start/stop + stack | ✅ verified on desktop Docker 29.6.1 |
 | 5 | k6 + live metrics + JFR + history | ✅ verified — REST + SSE fan-out, JFR, peaks, stats series |
 | 6 | No `SQLITE_BUSY` under write load | ✅ (`ConcurrentWriteLoadTest`) |
-| 7 | cloudflared public hostname | ⚠️ **code/docs only** — no live token verification in CI/cloud |
+| 7 | cloudflared public hostname | ✅ live on `bench.gaspartech.com`, Basic-auth protected |
 | 8 | Standalone auth | ✅ (+ CI smoke) |
 
 ### Backlog epic rollup (see `docs/11-backlog.md`)
@@ -83,9 +83,9 @@ on desktop Docker 29.6.1 (2026-07-26)**; ready to merge.
 1. **Merge PR #9** — SSE fan-out is merged with `main` and E2E-verified (evidence in §4). Nothing
    blocking beyond review.
 
-2. **DoD #7** — on a Docker host: set `TUNNEL_TOKEN` in `.env`, `docker compose --profile tunnel up -d`,
-   verify the public hostname reaches the orchestrator, then put Cloudflare Access in front of it.
-   This is the last unproven DoD item and needs a Cloudflare account, not more code.
+2. **Optional: add Cloudflare Access** in front of the tunnel hostname for SSO and audit logging
+   instead of a shared Basic password. Needs `Access: Apps and Policies: Edit` on the API token
+   (then rerun `setup-tunnel.ps1` with `-AccessEmail`), or a few clicks in Zero Trust.
 
 3. **Broaden the comparison** — the Java 21 virtual-vs-platform A/B is recorded (`docs/01 §4.2`).
    Next: the legacy shell (`java8-platform-low`, `java11-platform-low`) for the Boot 2.7 vs 4.1
