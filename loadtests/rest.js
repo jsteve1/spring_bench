@@ -37,7 +37,12 @@ export default function () {
     check(created, { "create member": (r) => r.status === 201 || r.status === 200 });
   }
 
-  sleep(0.2);
+  // Optional think time between iterations. Default 0 = capacity mode (no pacing).
+  // Prior sweeps used 0.2s and capped every runtime near ~42 rps.
+  const thinkTime = Number(__ENV.THINK_TIME ?? 0);
+  if (thinkTime > 0) {
+    sleep(thinkTime);
+  }
 }
 
 /** Spec format: `0:30s,full:2m,0:30s` → stages of {target, duration}. */

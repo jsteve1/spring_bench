@@ -74,6 +74,7 @@ function normalizeRequest(body = {}) {
     duration: body.duration || body.DURATION || "1m",
     rampStages: body.rampStages || body.RAMP_STAGES || "0:15s,full:30s,0:15s",
     dropRate: Number(body.dropRate || body.DROP_RATE || 0.1),
+    thinkTime: Number(body.thinkTime ?? body.THINK_TIME ?? 0),
   };
 }
 
@@ -209,6 +210,7 @@ async function runK6(runId, request) {
               DURATION: request.duration,
               RAMP_STAGES: request.rampStages,
               DROP_RATE: String(request.dropRate),
+              THINK_TIME: String(request.thinkTime ?? 0),
             },
           });
   } finally {
@@ -219,7 +221,7 @@ async function runK6(runId, request) {
   const seriesRel = writeStatsSeries(runId, request.targetName, series);
 
   return {
-    exitCode: result.exitCode,
+    exitCode: result.exitCode === 99 ? 0 : result.exitCode,
     logs: result.logs,
     client: result.client,
     peaks,
@@ -437,6 +439,7 @@ export function queueLoadTest(body) {
       duration: request.duration,
       rampStages: request.rampStages,
       dropRate: request.dropRate,
+      thinkTime: request.thinkTime,
       runtime: dims.runtime,
       threading: dims.threading,
       footprint: dims.footprint,

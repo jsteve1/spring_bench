@@ -27,6 +27,8 @@ param(
     [int]$Vus = 10,
     [string]$Duration = "30s",
     [string]$RampStages = "0:5s,full:20s,0:5s",
+    # 0 = capacity mode (no per-iteration sleep). First sweep used 0.2 and flatlined ~42 rps.
+    [double]$ThinkTime = 0,
     [int]$SseVus = 12,
     [string]$SseDuration = "20s",
     [string]$Orchestrator = "http://localhost:3000"
@@ -93,7 +95,7 @@ function Invoke-Run($target, $mode, $label) {
     $body = if ($mode -eq "sse") {
         @{ mode = "sse"; targetName = $target; vus = $SseVus; duration = $SseDuration; dropRate = 0.1 }
     } else {
-        @{ mode = "rest"; targetName = $target; vus = $Vus; duration = $Duration; rampStages = $RampStages }
+        @{ mode = "rest"; targetName = $target; vus = $Vus; duration = $Duration; rampStages = $RampStages; thinkTime = $ThinkTime }
     }
     $run = Invoke-RestMethod -Method POST -Uri "$Orchestrator/api/loadtest" -Headers $Auth `
         -ContentType application/json -Body ($body | ConvertTo-Json -Compress)

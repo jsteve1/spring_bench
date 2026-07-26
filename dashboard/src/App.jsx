@@ -32,10 +32,11 @@ const COLORS = [
 const defaultLoadForm = {
   mode: "rest",
   targetName: "java21-virtual-low",
-  vus: 10,
+  vus: 50,
   duration: "45s",
-  rampStages: "0:10s,full:20s,0:10s",
+  rampStages: "0:10s,full:25s,0:10s",
   dropRate: 0.1,
+  thinkTime: 0,
 };
 
 export default function App() {
@@ -276,6 +277,17 @@ export default function App() {
               step="0.05"
               value={loadForm.dropRate}
               onChange={(e) => setLoadForm({ ...loadForm, dropRate: Number(e.target.value) })}
+            />
+          </label>
+          <label>
+            Think time (s)
+            <input
+              type="number"
+              min="0"
+              step="0.05"
+              title="REST only. 0 = capacity mode (no pacing). 0.2 matches the paced first sweep."
+              value={loadForm.thinkTime}
+              onChange={(e) => setLoadForm({ ...loadForm, thinkTime: Number(e.target.value) })}
             />
           </label>
           <button type="submit" disabled={busy != null}>

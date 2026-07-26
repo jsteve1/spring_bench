@@ -78,25 +78,20 @@ on desktop Docker 29.6.1 (2026-07-26)**; ready to merge.
 
 ## 3. Recommended next work (ordered)
 
-### P0 — Finish DoD / prove the product
+### P0 — Prove capacity (not just cost)
 
-1. **Merge PR #9** — SSE fan-out is merged with `main` and E2E-verified (evidence in §4). Nothing
-   blocking beyond review.
-
-2. **Optional: add Cloudflare Access** in front of the tunnel hostname for SSO and audit logging
-   instead of a shared Basic password. Needs `Access: Apps and Policies: Edit` on the API token
-   (then rerun `setup-tunnel.ps1` with `-AccessEmail`), or a few clicks in Zero Trust.
-
-3. **Saturate the load** — the first full sweep is recorded in **`docs/12-benchmark-report.md`**
-   (5 runtimes, 23 runs, medians of 3). Its main limitation is that `rest.js` paces itself with
-   `sleep(0.2)` at 10 VUs, so every runtime lands at ~42 rps and none of the numbers are capacity
-   figures. Remove the sleep or push VUs into the hundreds, and scale SSE to 200–1000 connections,
-   which is where virtual threads should actually separate. `java25`, the `-high` rows, and the
-   ARM/amd64 pair are still unmeasured.
+1. **Capacity REST sweeps** — `rest.js` now defaults to `THINK_TIME=0` (no pacing). Re-run
+   `.\scripts\run-benchmarks.ps1 -Vus 50 -ThinkTime 0` (then 100+) on the Java 21 pair first;
+   expect RPS to separate by runtime instead of flatlining near 42. Document in `docs/12` or a
+   follow-on report section.
+2. **SSE scale** — push held connections toward 200–1000 (watch host memory; fan-out is one
+   container per VU). This is where virtual threads should separate on OS thread count / RSS.
+3. **Optional: Cloudflare Access** — rerun `setup-tunnel.ps1 -AccessEmail …` when the API token
+   has `Access: Apps and Policies: Edit`.
 
 ### P1 — Cleaner science & polish
 
-4. **INFRA-05** — add optional compose override for one-variable A/Bs: `java17-virtual-*`, `java21-platform-*`, `java25-virtual-amd64-*`.  
+4. **INFRA-05** — optional compose override rows already exist (`docker-compose.extra.yml`); keep measuring them.  
 5. **DASH** — sparkline / series view from `runs/{id}/stats-series.json` in RunCompare.  
 6. **OBS-06** — warmup flag + host/JDK metadata on run records (`docs/09 §4`).  
 7. **RUNTIME-01** — structured JSON logging (request id already exists).  
