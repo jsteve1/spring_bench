@@ -1,14 +1,14 @@
 /** Parse matrix target names like `java21-virtual-low` / `java25-virtual-arm-low`. */
 export function parseTargetDims(target) {
   const name = String(target || "");
-  const m = name.match(/^java(\d+)-(platform|virtual)(?:-(arm))?-(\w+)$/i);
+  const m = name.match(/^java(\d+)-(platform|virtual)(?:-(arm|amd64))?-(\w+)$/i);
   if (!m) {
     return { runtime: "?", threading: "?", footprint: "?", arch: "amd64", label: name || "?" };
   }
   return {
     runtime: m[1],
     threading: m[2].toLowerCase(),
-    arch: m[3] ? "arm64" : "amd64",
+    arch: m[3] && m[3].toLowerCase() === "arm" ? "arm64" : "amd64",
     footprint: m[4].toLowerCase(),
     label: name,
   };

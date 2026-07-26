@@ -13,6 +13,15 @@ assert.equal(d2.runtime, "25");
 assert.equal(d2.arch, "arm64");
 assert.equal(d2.footprint, "low");
 
+const d3 = parseTargetDims("java25-virtual-amd64-low");
+assert.equal(d3.runtime, "25");
+assert.equal(d3.arch, "amd64");
+assert.equal(d3.footprint, "low");
+
+const d4 = parseTargetDims("java21-platform-low");
+assert.equal(d4.threading, "platform");
+assert.equal(d4.arch, "amd64");
+
 const done = completedRuns(DEMO_RUNS);
 assert.equal(done.length, DEMO_RUNS.length);
 

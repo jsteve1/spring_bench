@@ -6,6 +6,14 @@ import {
   ratePerSec,
   trimSeriesSample,
 } from "../../orchestrator/src/runPeaks.js";
+import { parseExtraTargets } from "../../orchestrator/src/matrix.js";
+
+const extra = parseExtraTargets("java21-platform-low:8091, java25-virtual-amd64-low:8093, ,bogus");
+assert.deepEqual(extra.targets, ["java21-platform-low", "java25-virtual-amd64-low", "bogus"]);
+assert.equal(extra.ports["java21-platform-low"], 8091);
+assert.equal(extra.ports["java25-virtual-amd64-low"], 8093);
+assert.equal(extra.ports.bogus, undefined);
+assert.deepEqual(parseExtraTargets("").targets, []);
 
 assert.equal(ratePerSec(100, 300, 2000), 100);
 assert.equal(ratePerSec(null, 10, 1000), null);

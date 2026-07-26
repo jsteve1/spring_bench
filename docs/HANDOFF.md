@@ -17,7 +17,7 @@ on desktop Docker 29.6.1 (2026-07-26)**; ready to merge.
 | Spec + pins | **Done** | Boot **2.7.18** / **4.1.0**; Java LTS **8/11/17/21/25**; k6 **1.8.0** |
 | `service/` dual-shell | **Done** | Shared core + legacy/modern shells; Flyway; WAL single-writer; contract tests; Micrometer tags; `JvmDeepSampler` (CS / blocked / waited rates) |
 | Artifacts | **Done** | `service/build-all.sh` → `apps/insurance-{j8,j11,j17,j21,legacy,modern}.jar` |
-| Compose matrix | **Done** | 10 rows, digests, JFR in `JAVA_OPTS`, `profiles: [tools]` for `k6-sse`, `profiles: [tunnel]` for cloudflared |
+| Compose matrix | **Done** | 10 rows, digests, JFR in `JAVA_OPTS`, `profiles: [tools]` for `k6-sse`, `profiles: [tunnel]` for cloudflared; `docker-compose.extra.yml` adds 3 opt-in one-variable rows (INFRA-05) |
 | Orchestrator (Node 24) | **Done (MVP)** | Targets start/stop/restart; live stats WS; k6 REST+SSE; JFR collect; run records + **peaks** + **`runs/{id}/stats-series.json`** |
 | Dashboard (React) | **Done (MVP)** | Targets + load form; live CPU/mem/threads/heap/GC/**CS/lock** charts; historical **RunCompare** (+ demo fixtures) |
 | Load scripts | **Done (MVP)** | `loadtests/rest.js`, `sse.js` + `Dockerfile.k6-sse` (`xk6-sse@v0.1.11`); SSE runs **one container per VU** and merges summaries |
@@ -66,10 +66,13 @@ on desktop Docker 29.6.1 (2026-07-26)**; ready to merge.
 5. **REST load mix is light**  
    `rest.js` does `/health`, list members, and creates a member on ~1/5 VUs — enough for WAL concurrency, not a full CRUD fuzz suite.
 
-6. **Optional matrix rows** (`docs/01 §4.2`) are **documented only** — not in default compose (`INFRA-05`).
+6. **Extension rows are opt-in** — `docker-compose.extra.yml` (INFRA-05) must be passed with `-f`,
+   and the orchestrator must be **rebuilt** (`--build`) for `EXTRA_MATRIX_TARGETS` to take effect,
+   since `src/` is baked into the image.
 
-7. **Only `java21-virtual-low` has been exercised end-to-end.** The other nine rows parse and start,
-   but no comparison run across runtimes/threading has been recorded yet.
+7. **Only the Java 21 rows have been load-tested.** `java21-virtual-low` and `java21-platform-low`
+   have recorded runs; the Java 8/11/17/25 rows start but have never been benchmarked. The ARM rows
+   also need QEMU binfmt (`infra/arm64-setup.md`).
 
 ---
 
@@ -84,11 +87,10 @@ on desktop Docker 29.6.1 (2026-07-26)**; ready to merge.
    verify the public hostname reaches the orchestrator, then put Cloudflare Access in front of it.
    This is the last unproven DoD item and needs a Cloudflare account, not more code.
 
-3. **First real comparison run** — the point of the project. Bring up a platform/virtual pair on the
-   same runtime (e.g. `java17-platform-mid` vs `java21-virtual-low`, or add `java21-platform-low` per
-   INFRA-05), run identical REST and SSE profiles against each, then read the deltas in RunCompare
-   (peak mem, threads, context-switch rate, `jdk.VirtualThreadPinned`). Nine of ten rows have never
-   been load-tested.
+3. **Broaden the comparison** — the Java 21 virtual-vs-platform A/B is recorded (`docs/01 §4.2`).
+   Next: the legacy shell (`java8-platform-low`, `java11-platform-low`) for the Boot 2.7 vs 4.1
+   story, the `-high` footprint pair, and `java25-virtual-amd64-low` vs the ARM row. Repeat each
+   cell 3+ times before quoting numbers anywhere.
 
 ### P1 — Cleaner science & polish
 
@@ -163,6 +165,7 @@ curl -s -X POST http://localhost:3000/api/loadtest \
 | `service/` | Maven multi-module insurance service |
 | `apps/` | Built JARs (gitignored; CI builds them) |
 | `docker-compose.yml` | Matrix + orchestrator + k6-sse + tunnel |
+| `docker-compose.extra.yml` | Opt-in one-variable A/B rows (INFRA-05) |
 | `orchestrator/src/` | Control plane (`loadtest.js`, `stats.js`, `jfr.js`, `runPeaks.js`) |
 | `dashboard/src/` | `App.jsx`, `RunCompare.jsx` |
 | `loadtests/` | `rest.js`, `sse.js`, `Dockerfile.k6-sse` |

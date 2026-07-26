@@ -16,14 +16,14 @@ const LOADTESTS_IN_ORCH = process.env.LOADTESTS_PATH || "/loadtests";
 
 /** Parse `java21-virtual-low` / `java25-virtual-arm-low` into matrix dimensions. */
 export function parseTargetDims(target) {
-  const m = String(target || "").match(/^java(\d+)-(platform|virtual)(?:-(arm))?-(\w+)$/i);
+  const m = String(target || "").match(/^java(\d+)-(platform|virtual)(?:-(arm|amd64))?-(\w+)$/i);
   if (!m) {
     return { runtime: null, threading: null, footprint: null, arch: null };
   }
   return {
     runtime: m[1],
     threading: m[2].toLowerCase(),
-    arch: m[3] ? "arm64" : "amd64",
+    arch: m[3] && m[3].toLowerCase() === "arm" ? "arm64" : "amd64",
     footprint: m[4].toLowerCase(),
   };
 }

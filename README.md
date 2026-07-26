@@ -62,6 +62,16 @@ docker compose up -d java21-virtual-low   # example target
 
 Matrix services listen on host ports **8081–8090**. Orchestrator dashboard API: `http://localhost:3000`.
 
+For a clean A/B where only one dimension changes (e.g. virtual vs platform threads on the same
+runtime and footprint), add the opt-in extension rows on ports 8091–8093:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.extra.yml \
+  up -d --build orchestrator java21-virtual-low java21-platform-low
+```
+
+See `docs/01-version-matrix.md` §4.2 for the row list and the first recorded comparison.
+
 ### 4. Public tunnel (optional)
 
 ```bash
