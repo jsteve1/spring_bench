@@ -2,6 +2,8 @@ import fs from "fs";
 import path from "path";
 import { assertMatrixTarget, MATRIX_TARGETS } from "./matrix.js";
 import { getDocker } from "./dockerClient.js";
+import { demuxDockerStream } from "./dockerStream.js";
+import { collectJfr } from "./jfr.js";
 
 const RUNS_DIR = process.env.RUNS_DIR || path.join(process.cwd(), "runs");
 const ORCHESTRATOR_NAME = process.env.ORCHESTRATOR_CONTAINER || "orchestrator";
@@ -64,18 +66,24 @@ function summarizeK6(summary) {
     return { raw: summary };
   }
   const m = summary.metrics;
-  const lat = m.http_req_duration?.values || {};
+  // k6 --summary-export: older builds nest under .values; 1.x flattens.
+  const pick = (metric) => metric?.values || metric || {};
+  const lat = pick(m.http_req_duration);
+  const reqs = pick(m.http_reqs);
+  const iters = pick(m.iterations);
+  const failed = pick(m.http_req_failed);
+  const received = pick(m.data_received);
   return {
-    rps: m.http_reqs?.values?.rate ?? null,
-    iterations: m.iterations?.values?.count ?? null,
-    errorRate: m.http_req_failed?.values?.rate ?? null,
+    rps: reqs.rate ?? null,
+    iterations: iters.count ?? null,
+    errorRate: failed.rate ?? failed.value ?? null,
     latencyMs: {
       p50: lat["p(50)"] ?? lat.med ?? null,
       p95: lat["p(95)"] ?? null,
       p99: lat["p(99)"] ?? null,
     },
-    dataReceivedMb: m.data_received?.values?.count
-      ? Math.round((m.data_received.values.count / (1024 * 1024)) * 100) / 100
+    dataReceivedMb: received.count
+      ? Math.round((received.count / (1024 * 1024)) * 100) / 100
       : null,
   };
 }
@@ -106,21 +114,47 @@ async function imageExists(name) {
   }
 }
 
+async function ensureImage(name) {
+  if (await imageExists(name)) {
+    return;
+  }
+  await new Promise((resolve, reject) => {
+    getDocker().pull(name, (err, stream) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      getDocker().modem.followProgress(stream, (err2) => (err2 ? reject(err2) : resolve()));
+    });
+  });
+}
+
 async function runK6(runId, request) {
   const docker = getDocker();
   const script = request.mode === "sse" ? "sse.js" : "rest.js";
   const image = request.mode === "sse" ? K6_SSE_IMAGE : K6_REST_IMAGE;
 
-  if (request.mode === "sse" && !(await imageExists(image))) {
-    throw new Error(
-      `SSE image '${image}' not found. Build with: docker build -f loadtests/Dockerfile.k6-sse -t bench/k6-sse .`,
-    );
+  if (request.mode === "sse") {
+    if (!(await imageExists(image))) {
+      throw new Error(
+        `SSE image '${image}' not found. Build with: docker build -f loadtests/Dockerfile.k6-sse -t bench/k6-sse .`,
+      );
+    }
+  } else {
+    await ensureImage(image);
   }
 
   const loadtestsHost = await hostBindFor(LOADTESTS_IN_ORCH);
   const runsHost = await hostBindFor("/app/runs");
   const outHost = path.join(runsHost, runId);
-  fs.mkdirSync(path.join(RUNS_DIR, runId), { recursive: true });
+  const outDir = path.join(RUNS_DIR, runId);
+  fs.mkdirSync(outDir, { recursive: true });
+  // k6 image runs as non-root; ensure summary export can write.
+  try {
+    fs.chmodSync(outDir, 0o777);
+  } catch {
+    // ignore (Windows host bind may not honor chmod)
+  }
 
   const Env = [
     `TARGET=${request.targetUrl}`,
@@ -133,6 +167,7 @@ async function runK6(runId, request) {
   const container = await docker.createContainer({
     Image: image,
     name: `k6-${runId.slice(0, 8)}`,
+    User: "0:0",
     Env,
     Cmd: ["run", "--summary-export=/out/summary.json", `/scripts/${script}`],
     HostConfig: {
@@ -147,7 +182,7 @@ async function runK6(runId, request) {
   let logs = "";
   try {
     const buf = await container.logs({ stdout: true, stderr: true, follow: false });
-    logs = buf.toString("utf8").slice(-8000);
+    logs = demuxDockerStream(buf).slice(-8000);
   } catch {
     // ignore
   }
@@ -196,13 +231,26 @@ export function queueLoadTest(body) {
   setImmediate(async () => {
     try {
       const result = await runK6(runId, request);
+      let jfr = null;
+      try {
+        jfr = await collectJfr(request.targetName, runId);
+      } catch (err) {
+        jfr = { ok: false, error: err.message };
+      }
       const updated = {
         ...readRecord(runId),
         finishedAt: new Date().toISOString(),
         status: result.exitCode === 0 ? "completed" : "failed",
         exitCode: result.exitCode,
         client: result.client,
-        artifacts: result.artifacts,
+        server: {
+          jfrAggregates: jfr?.aggregates || null,
+        },
+        artifacts: {
+          ...result.artifacts,
+          jfr: jfr?.path || null,
+        },
+        jfr,
         logsTail: result.logs,
       };
       writeRecord(runId, updated);
