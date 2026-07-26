@@ -37,9 +37,13 @@ This is the master index. Detailed, scoped requirements live in `docs/`. Read th
 
 ## Definition of Done
 
-Status of each item is tracked in **`docs/HANDOFF.md`** (authoritative for agents). Summary as of
-2026-07-26: items **1–6 and 8** are implemented and CI-covered where noted; item **7** (cloudflared)
-is wired in compose/docs but needs a real `TUNNEL_TOKEN` on a Docker host.
+Status of each item is tracked in **`docs/HANDOFF.md`** (authoritative for agents). As of
+2026-07-26 **all eight items are met**, items 1–3, 6 and 8 with CI coverage; 4, 5 and 7 verified
+manually on a Docker host (Engine 29.6.1).
+
+Meeting the DoD makes the platform *complete*, not the *study* complete: only the Java 21 rows have
+recorded runs so far. See `docs/01 §4.2` for the first comparison and `docs/HANDOFF.md` for the
+suggested next experiments.
 
 1. `service/build-all` produces all runtime artifacts into `./apps/`.
 2. Both shells expose an **identical contract** (`docs/08`): their `/v3/api-docs` diff is empty.
