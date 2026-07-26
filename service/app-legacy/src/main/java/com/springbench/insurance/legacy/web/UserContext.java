@@ -1,5 +1,9 @@
 package com.springbench.insurance.legacy.web;
 
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+
 import javax.servlet.http.HttpServletRequest;
 
 public final class UserContext {
@@ -7,6 +11,10 @@ public final class UserContext {
     }
 
     public static String actor(HttpServletRequest request) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken)) {
+            return auth.getName();
+        }
         String user = request.getHeader("X-User");
         return user == null || user.isEmpty() ? "system" : user;
     }

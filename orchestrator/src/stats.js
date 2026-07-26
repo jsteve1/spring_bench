@@ -1,8 +1,12 @@
 import { MATRIX_TARGETS } from "./matrix.js";
 import { getDocker, inspectContainer } from "./dockerClient.js";
 import { fetchTargetHealth } from "./targets.js";
+import { ratePerSec } from "./runPeaks.js";
 
 const STATS_TIMEOUT_MS = Number(process.env.STATS_TIMEOUT_MS || 4000);
+
+/** @type {Map<string, { ts: number, contextSwitches: number|null, blocked: number|null, waited: number|null }>} */
+const prevDeep = new Map();
 
 function round(n, digits = 1) {
   if (!Number.isFinite(n)) {
@@ -83,16 +87,20 @@ async function metricValue(name, metricPath) {
     }
     const body = await res.json();
     const measurement = body.measurements?.[0];
-    return measurement?.value ?? null;
+    const value = measurement?.value;
+    return Number.isFinite(value) ? value : null;
   } catch {
     return null;
   }
 }
 
 async function fetchJvmMetrics(name) {
-  const [threads, heapUsed] = await Promise.all([
+  const [threads, heapUsed, contextSwitches, blocked, waited] = await Promise.all([
     metricValue(name, "jvm.threads.live"),
     metricValue(name, "jvm.memory.used?tag=area%3Aheap"),
+    metricValue(name, "bench.context.switches.total"),
+    metricValue(name, "bench.threads.blocked.total"),
+    metricValue(name, "bench.threads.waited.total"),
   ]);
 
   let gcCount = null;
@@ -119,49 +127,73 @@ async function fetchJvmMetrics(name) {
     // ignore
   }
 
+  const now = Date.now();
+  const prev = prevDeep.get(name);
+  let contextSwitchRate = null;
+  let blockedRate = null;
+  let waitedRate = null;
+  if (prev) {
+    const elapsed = now - prev.ts;
+    contextSwitchRate = ratePerSec(prev.contextSwitches, contextSwitches, elapsed);
+    blockedRate = ratePerSec(prev.blocked, blocked, elapsed);
+    waitedRate = ratePerSec(prev.waited, waited, elapsed);
+  }
+  prevDeep.set(name, {
+    ts: now,
+    contextSwitches,
+    blocked,
+    waited,
+  });
+
   return {
     threads: threads != null ? round(threads, 0) : null,
     heapUsedMb: heapUsed != null ? round(heapUsed / (1024 * 1024), 1) : null,
     gcPauseCount: gcCount,
     gcPauseTotalMs: gcTotalMs,
+    contextSwitches: contextSwitches != null ? round(contextSwitches, 0) : null,
+    blockedTotal: blocked != null ? round(blocked, 0) : null,
+    waitedTotal: waited != null ? round(waited, 0) : null,
+    contextSwitchRate,
+    blockedRate,
+    waitedRate,
   };
 }
 
-async function containerStatsSnapshot(name) {
+function idleTarget(name, state = "missing") {
+  return {
+    name,
+    state,
+    cpuPct: 0,
+    memMb: 0,
+    memLimitMb: 0,
+    netRxMb: 0,
+    netTxMb: 0,
+    pids: 0,
+    threads: null,
+    heapUsedMb: null,
+    gcPauseCount: null,
+    gcPauseTotalMs: null,
+    contextSwitchRate: null,
+    blockedRate: null,
+    waitedRate: null,
+    contextSwitches: null,
+    blockedTotal: null,
+    waitedTotal: null,
+    maxHeapMb: null,
+    javaVersion: null,
+    virtualThreadsEnabled: null,
+  };
+}
+
+export async function containerStatsSnapshot(name) {
   const info = await inspectContainer(name);
   if (!info) {
-    return {
-      name,
-      state: "missing",
-      cpuPct: 0,
-      memMb: 0,
-      memLimitMb: 0,
-      netRxMb: 0,
-      netTxMb: 0,
-      pids: 0,
-      threads: null,
-      maxHeapMb: null,
-      javaVersion: null,
-      virtualThreadsEnabled: null,
-    };
+    return idleTarget(name, "missing");
   }
 
   const state = info.State.Status;
   if (state !== "running") {
-    return {
-      name,
-      state,
-      cpuPct: 0,
-      memMb: 0,
-      memLimitMb: 0,
-      netRxMb: 0,
-      netTxMb: 0,
-      pids: 0,
-      threads: null,
-      maxHeapMb: null,
-      javaVersion: null,
-      virtualThreadsEnabled: null,
-    };
+    return idleTarget(name, state);
   }
 
   const container = getDocker().getContainer(name);
@@ -187,6 +219,12 @@ async function containerStatsSnapshot(name) {
     heapUsedMb: jvm.heapUsedMb,
     gcPauseCount: jvm.gcPauseCount,
     gcPauseTotalMs: jvm.gcPauseTotalMs,
+    contextSwitchRate: jvm.contextSwitchRate,
+    blockedRate: jvm.blockedRate,
+    waitedRate: jvm.waitedRate,
+    contextSwitches: jvm.contextSwitches,
+    blockedTotal: jvm.blockedTotal,
+    waitedTotal: jvm.waitedTotal,
     maxHeapMb: health?.maxHeapMb ?? null,
     javaVersion: health?.javaVersion ?? null,
     virtualThreadsEnabled: health?.virtualThreadsEnabled ?? null,
@@ -201,19 +239,8 @@ export async function collectMatrixStats() {
         return await containerStatsSnapshot(name);
       } catch (err) {
         return {
-          name,
-          state: "error",
+          ...idleTarget(name, "error"),
           error: err.message,
-          cpuPct: 0,
-          memMb: 0,
-          memLimitMb: 0,
-          netRxMb: 0,
-          netTxMb: 0,
-          pids: 0,
-          threads: null,
-          maxHeapMb: null,
-          javaVersion: null,
-          virtualThreadsEnabled: null,
         };
       }
     }),

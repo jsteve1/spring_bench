@@ -9,12 +9,13 @@
 | Layer | Status | Notes |
 | :-- | :-- | :-- |
 | Docs / version pins | **Done** | Boot **4.1.0** / **2.7.18**; Java LTS matrix |
-| `service/` | **Done (MVP)** | Contract tests + Micrometer/Prometheus + matrix tags |
-| `docker-compose.yml` | **Done** | Digest pins + `BENCH_*` env tags per row |
-| `orchestrator/` | **ORCH-02..05** | Docker control, live stats+JVM scrape, **k6 launch** |
-| `dashboard/` | **DASH-02/03** | Controls + load-test form + charts (CPU/mem/threads/heap/GC) |
-| Observability | **OBS-01..04** | Tags + Actuator scrape + **JFR dump/collect after k6** |
-| Standalone / tunnel | **Not started** | DoD #7/#8 |
+| `service/` | **Done** | Micrometer + deep gauges + standalone auth |
+| `docker-compose.yml` | **Done** | Digests + `k6-sse` + tunnel profile |
+| `orchestrator/` | **Done (MVP)** | Control, stats, k6, JFR, **peaks + stats-series.json** |
+| `dashboard/` | **Done (MVP)** | Controls, live CS/lock charts, historical compare |
+| CI | **CI-01..03** | `.github/workflows/ci.yml` (unit, build/smoke, compose, OpenAPI) |
+| Tunnel | **Docs ready** | Needs real `TUNNEL_TOKEN` on Docker host |
+| Standalone | **Auth ready** | `scripts/smoke-standalone.sh` |
 
 ---
 
@@ -23,44 +24,41 @@
 | # | Item | Status |
 | :--: | :-- | :--: |
 | 1 | build-all → apps/ | ✅ |
-| 2 | OpenAPI contract parity | ✅ |
-| 3 | compose config + digests | ✅ |
+| 2 | OpenAPI contract parity | ✅ (+ CI) |
+| 3 | compose config + digests | ✅ (+ CI) |
 | 4 | orchestrator start/stop | ✅ |
-| 5 | k6 + live metrics + JFR | ⚠️ k6 REST + live + JFR ✅; SSE image ❌ |
+| 5 | k6 + live metrics + JFR | ✅ (+ stats series artifact) |
 | 6 | SQLITE_BUSY test | ✅ |
-| 7 | cloudflared | ❌ |
-| 8 | standalone auth | ❌ |
+| 7 | cloudflared | ⚠️ wired; needs token on Docker host |
+| 8 | standalone auth | ✅ (+ CI smoke) |
 
 ---
 
 ## Recommended next task
 
-1. **LOAD-02/03** — Build `bench/k6-sse` and wire SSE mode (already coded; needs image).
-2. **DASH-05** — Historical run comparison UI (JFR aggregates already on run records).
-3. DoD #7/#8 — tunnel + standalone auth.
+1. Run tunnel end-to-end with a real Cloudflare token (DoD #7).
+2. Optional: surface `stats-series.json` as a sparkline in the compare UI.
+3. Optional: Cloudflare Access notes polish / ARM64 QEMU runbook pass.
 
 ---
 
-## How to verify this slice
+## How to verify this slice (no Docker)
 
-```powershell
-docker compose up -d --build orchestrator java21-virtual-low
-# wait until healthy, then:
-Invoke-RestMethod -Method POST -Uri http://localhost:3000/api/loadtest -ContentType application/json -Body '{"mode":"rest","targetName":"java21-virtual-low","vus":5,"duration":"15s","rampStages":"0:3s,full:9s,0:3s"}'
-# poll GET /api/runs/{runId} until completed — expect artifacts.jfr + server.jfrAggregates
+```bash
+cd orchestrator && npm run test:unit
+cd dashboard && npm run test:unit && npm run build
+chmod +x scripts/check-stats-series.sh && ./scripts/check-stats-series.sh
+# if jars present:
+./scripts/smoke-standalone.sh
 ```
 
-Dashboard: `cd dashboard; npm install; npm run dev`
-
-SSE mode needs: `docker build -f loadtests/Dockerfile.k6-sse -t bench/k6-sse .`
-
 ---
 
-## Key new files
+## Key artifacts on a completed run
 
 | Path | Purpose |
 | :-- | :-- |
-| `orchestrator/src/loadtest.js` | ORCH-05 k6 container runner |
-| `orchestrator/src/stats.js` | Docker stats + Actuator JVM metrics |
-| `management.metrics.tags` in both `application.yml` | OBS-01 |
-| `BENCH_*` in compose | Tag values per matrix row |
+| `runs/{id}.json` | Run record (client + server peaks + JFR aggregates) |
+| `runs/{id}/summary.json` | k6 summary export |
+| `runs/{id}/stats-series.json` | Sampled live stats during the load test |
+| `runs/{id}/bench.jfr` | Flight recording dump |

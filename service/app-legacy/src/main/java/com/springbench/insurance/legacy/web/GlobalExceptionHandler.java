@@ -36,6 +36,11 @@ public class GlobalExceptionHandler {
         return problem(HttpStatus.BAD_REQUEST, "Validation failed", "Request validation failed", request, errors);
     }
 
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ProblemDetailResponse> illegalState(IllegalStateException ex, HttpServletRequest request) {
+        return problem(HttpStatus.FORBIDDEN, "Forbidden", ex.getMessage(), request, null);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ProblemDetailResponse> generic(Exception ex, HttpServletRequest request) {
         return problem(HttpStatus.INTERNAL_SERVER_ERROR, "Internal error", "Unexpected server error", request, null);

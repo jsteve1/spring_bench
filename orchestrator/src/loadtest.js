@@ -4,6 +4,8 @@ import { assertMatrixTarget, MATRIX_TARGETS } from "./matrix.js";
 import { getDocker } from "./dockerClient.js";
 import { demuxDockerStream } from "./dockerStream.js";
 import { collectJfr } from "./jfr.js";
+import { containerStatsSnapshot } from "./stats.js";
+import { emptyPeaks, mapJfrToServerFields, mergePeaks, trimSeriesSample } from "./runPeaks.js";
 
 const RUNS_DIR = process.env.RUNS_DIR || path.join(process.cwd(), "runs");
 const ORCHESTRATOR_NAME = process.env.ORCHESTRATOR_CONTAINER || "orchestrator";
@@ -11,6 +13,20 @@ const DOCKER_NETWORK = process.env.DOCKER_NETWORK || "matrix-net";
 const K6_REST_IMAGE = process.env.K6_REST_IMAGE || "grafana/k6:1.8.0";
 const K6_SSE_IMAGE = process.env.K6_SSE_IMAGE || "bench/k6-sse";
 const LOADTESTS_IN_ORCH = process.env.LOADTESTS_PATH || "/loadtests";
+
+/** Parse `java21-virtual-low` / `java25-virtual-arm-low` into matrix dimensions. */
+export function parseTargetDims(target) {
+  const m = String(target || "").match(/^java(\d+)-(platform|virtual)(?:-(arm))?-(\w+)$/i);
+  if (!m) {
+    return { runtime: null, threading: null, footprint: null, arch: null };
+  }
+  return {
+    runtime: m[1],
+    threading: m[2].toLowerCase(),
+    arch: m[3] ? "arm64" : "amd64",
+    footprint: m[4].toLowerCase(),
+  };
+}
 
 function writeRecord(runId, record) {
   fs.mkdirSync(RUNS_DIR, { recursive: true });
@@ -73,6 +89,9 @@ function summarizeK6(summary) {
   const iters = pick(m.iterations);
   const failed = pick(m.http_req_failed);
   const received = pick(m.data_received);
+  const sseEvents = pick(m.sse_events);
+  const sseConnections = pick(m.sse_connections);
+  const sseDrops = pick(m.sse_drops);
   return {
     rps: reqs.rate ?? null,
     iterations: iters.count ?? null,
@@ -85,6 +104,11 @@ function summarizeK6(summary) {
     dataReceivedMb: received.count
       ? Math.round((received.count / (1024 * 1024)) * 100) / 100
       : null,
+    sse: {
+      events: sseEvents.count ?? null,
+      connections: sseConnections.count ?? null,
+      drops: sseDrops.count ?? null,
+    },
   };
 }
 
@@ -137,7 +161,7 @@ async function runK6(runId, request) {
   if (request.mode === "sse") {
     if (!(await imageExists(image))) {
       throw new Error(
-        `SSE image '${image}' not found. Build with: docker build -f loadtests/Dockerfile.k6-sse -t bench/k6-sse .`,
+        `SSE image '${image}' not found. Build with: docker compose --profile tools build k6-sse`,
       );
     }
   } else {
@@ -178,7 +202,13 @@ async function runK6(runId, request) {
   });
 
   await container.start();
+
+  const stopSignal = { stopped: false };
+  const peaksPromise = sampleTargetPeaks(request.targetName, stopSignal);
   const exitCode = await waitContainer(container);
+  stopSignal.stopped = true;
+  const { peaks, series } = await peaksPromise;
+
   let logs = "";
   try {
     const buf = await container.logs({ stdout: true, stderr: true, follow: false });
@@ -198,19 +228,69 @@ async function runK6(runId, request) {
     summary = JSON.parse(fs.readFileSync(summaryPath, "utf8"));
   }
 
+  const seriesRel = writeStatsSeries(runId, request.targetName, series);
+
   return {
     exitCode,
     logs,
     client: summarizeK6(summary),
+    peaks,
     artifacts: {
       k6Summary: `runs/${runId}/summary.json`,
+      statsSeries: seriesRel,
     },
   };
+}
+
+function writeStatsSeries(runId, targetName, series) {
+  const outDir = path.join(RUNS_DIR, runId);
+  fs.mkdirSync(outDir, { recursive: true });
+  const file = path.join(outDir, "stats-series.json");
+  const payload = {
+    runId,
+    target: targetName,
+    sampledAt: new Date().toISOString(),
+    intervalMs: 2000,
+    samples: series,
+  };
+  fs.writeFileSync(file, JSON.stringify(payload, null, 2));
+  return `runs/${runId}/stats-series.json`;
+}
+
+async function sampleTargetPeaks(targetName, stopSignal) {
+  let peaks = emptyPeaks();
+  const series = [];
+  // Prime rate windows, then poll until k6 exits.
+  while (!stopSignal.stopped) {
+    try {
+      const snap = await containerStatsSnapshot(targetName);
+      peaks = mergePeaks(peaks, snap);
+      const point = trimSeriesSample(snap);
+      if (point) {
+        series.push(point);
+      }
+    } catch {
+      // ignore transient docker/actuator failures during the run
+    }
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+  try {
+    const snap = await containerStatsSnapshot(targetName);
+    peaks = mergePeaks(peaks, snap);
+    const point = trimSeriesSample(snap);
+    if (point) {
+      series.push(point);
+    }
+  } catch {
+    // ignore
+  }
+  return { peaks, series };
 }
 
 export function queueLoadTest(body) {
   const request = normalizeRequest(body);
   const runId = crypto.randomUUID();
+  const dims = parseTargetDims(request.targetName);
   const record = {
     runId,
     startedAt: new Date().toISOString(),
@@ -223,6 +303,10 @@ export function queueLoadTest(body) {
       duration: request.duration,
       rampStages: request.rampStages,
       dropRate: request.dropRate,
+      runtime: dims.runtime,
+      threading: dims.threading,
+      footprint: dims.footprint,
+      arch: dims.arch,
     },
     request,
   };
@@ -237,6 +321,7 @@ export function queueLoadTest(body) {
       } catch (err) {
         jfr = { ok: false, error: err.message };
       }
+      const jfrFields = mapJfrToServerFields(jfr?.aggregates);
       const updated = {
         ...readRecord(runId),
         finishedAt: new Date().toISOString(),
@@ -244,6 +329,8 @@ export function queueLoadTest(body) {
         exitCode: result.exitCode,
         client: result.client,
         server: {
+          ...result.peaks,
+          ...jfrFields,
           jfrAggregates: jfr?.aggregates || null,
         },
         artifacts: {

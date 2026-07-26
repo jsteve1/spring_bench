@@ -17,3 +17,5 @@ Expose the orchestrator (and dashboard) without opening inbound router ports.
 
 4. Route your public hostname to `http://orchestrator:3000` in the Cloudflare dashboard.
 5. Layer **Cloudflare Access** on the hostname — the orchestrator controls Docker via the socket.
+
+Also see root `.env.example` and `docs/05-infrastructure-and-orchestration.md`.
