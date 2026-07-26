@@ -1,4 +1,4 @@
-# Agent Handoff — Spring Bench (2026-07-25)
+# Agent Handoff — Spring Bench (2026-07-26)
 
 > **Read first:** `REQUIREMENTS.md` · `docs/11-backlog.md` · `docs/01-version-matrix.md`
 
@@ -13,7 +13,7 @@
 | `docker-compose.yml` | **Done** | Digest pins + `BENCH_*` env tags per row |
 | `orchestrator/` | **ORCH-02..05** | Docker control, live stats+JVM scrape, **k6 launch** |
 | `dashboard/` | **DASH-02/03** | Controls + load-test form + charts (CPU/mem/threads/heap/GC) |
-| Observability | **OBS-01 + partial OBS-04** | Tags + Actuator scrape; **JFR still TODO (OBS-02)** |
+| Observability | **OBS-01..04** | Tags + Actuator scrape + **JFR dump/collect after k6** |
 | Standalone / tunnel | **Not started** | DoD #7/#8 |
 
 ---
@@ -26,7 +26,7 @@
 | 2 | OpenAPI contract parity | ✅ |
 | 3 | compose config + digests | ✅ |
 | 4 | orchestrator start/stop | ✅ |
-| 5 | k6 + live metrics + JFR | ⚠️ k6 REST + live docker/JVM ✅; JFR/SSE image ❌ |
+| 5 | k6 + live metrics + JFR | ⚠️ k6 REST + live + JFR ✅; SSE image ❌ |
 | 6 | SQLITE_BUSY test | ✅ |
 | 7 | cloudflared | ❌ |
 | 8 | standalone auth | ❌ |
@@ -35,23 +35,19 @@
 
 ## Recommended next task
 
-1. **OBS-02** — Append JFR flags to each matrix `JAVA_OPTS`; dump `/tmp/bench.jfr`.
-2. **OBS-03** — After k6 run, `docker cp` JFR into `runs/{id}/`.
-3. **LOAD-02/03** — Build `bench/k6-sse` and wire SSE mode (already coded; needs image).
-4. **DASH-05** — Historical run comparison UI.
-5. DoD #7/#8 — tunnel + standalone auth.
+1. **LOAD-02/03** — Build `bench/k6-sse` and wire SSE mode (already coded; needs image).
+2. **DASH-05** — Historical run comparison UI (JFR aggregates already on run records).
+3. DoD #7/#8 — tunnel + standalone auth.
 
 ---
 
 ## How to verify this slice
 
 ```powershell
-cd service; .\build-all.ps1   # rebuild JARs with prometheus registry
 docker compose up -d --build orchestrator java21-virtual-low
-curl http://localhost:8087/actuator/prometheus | Select-String "runtime="
-curl http://localhost:3000/api/stats
-curl -Method POST http://localhost:3000/api/loadtest -ContentType "application/json" -Body '{"mode":"rest","targetName":"java21-virtual-low","vus":5,"duration":"20s","rampStages":"0:5s,full:10s,0:5s"}'
-curl http://localhost:3000/api/runs
+# wait until healthy, then:
+Invoke-RestMethod -Method POST -Uri http://localhost:3000/api/loadtest -ContentType application/json -Body '{"mode":"rest","targetName":"java21-virtual-low","vus":5,"duration":"15s","rampStages":"0:3s,full:9s,0:3s"}'
+# poll GET /api/runs/{runId} until completed — expect artifacts.jfr + server.jfrAggregates
 ```
 
 Dashboard: `cd dashboard; npm install; npm run dev`

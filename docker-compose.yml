@@ -16,7 +16,7 @@ services:
     container_name: java8-platform-low
     environment:
       <<: *matrix-env
-      JAVA_OPTS: -Xmx192m
+      JAVA_OPTS: "-Xmx192m -XX:StartFlightRecording=name=bench,settings=profile,disk=true,maxsize=256m,dumponexit=true,filename=/tmp/bench.jfr -XX:FlightRecorderOptions=stackdepth=128"
       BENCH_RUNTIME: "8"
       BENCH_THREADING: "platform"
       BENCH_FOOTPRINT: "low"
@@ -37,7 +37,7 @@ services:
     container_name: java8-platform-mid
     environment:
       <<: *matrix-env
-      JAVA_OPTS: -Xmx768m
+      JAVA_OPTS: "-Xmx768m -XX:StartFlightRecording=name=bench,settings=profile,disk=true,maxsize=256m,dumponexit=true,filename=/tmp/bench.jfr -XX:FlightRecorderOptions=stackdepth=128"
       BENCH_RUNTIME: "8"
       BENCH_THREADING: "platform"
       BENCH_FOOTPRINT: "mid"
@@ -58,7 +58,7 @@ services:
     container_name: java11-platform-low
     environment:
       <<: *matrix-env
-      JAVA_OPTS: -Xmx384m
+      JAVA_OPTS: "-Xmx384m -XX:StartFlightRecording=name=bench,settings=profile,disk=true,maxsize=256m,dumponexit=true,filename=/tmp/bench.jfr -XX:FlightRecorderOptions=stackdepth=128"
       BENCH_RUNTIME: "11"
       BENCH_THREADING: "platform"
       BENCH_FOOTPRINT: "low"
@@ -79,7 +79,7 @@ services:
     container_name: java11-platform-high
     environment:
       <<: *matrix-env
-      JAVA_OPTS: -Xmx3g
+      JAVA_OPTS: "-Xmx3g -XX:StartFlightRecording=name=bench,settings=profile,disk=true,maxsize=256m,dumponexit=true,filename=/tmp/bench.jfr -XX:FlightRecorderOptions=stackdepth=128"
       BENCH_RUNTIME: "11"
       BENCH_THREADING: "platform"
       BENCH_FOOTPRINT: "high"
@@ -100,7 +100,7 @@ services:
     container_name: java17-platform-mid
     environment:
       <<: *matrix-env
-      JAVA_OPTS: -Xmx1500m
+      JAVA_OPTS: "-Xmx1500m -XX:StartFlightRecording=name=bench,settings=profile,disk=true,maxsize=256m,dumponexit=true,filename=/tmp/bench.jfr -XX:FlightRecorderOptions=stackdepth=128"
       BENCH_RUNTIME: "17"
       BENCH_THREADING: "platform"
       BENCH_FOOTPRINT: "mid"
@@ -121,7 +121,7 @@ services:
     container_name: java17-platform-high
     environment:
       <<: *matrix-env
-      JAVA_OPTS: -Xmx6g
+      JAVA_OPTS: "-Xmx6g -XX:StartFlightRecording=name=bench,settings=profile,disk=true,maxsize=256m,dumponexit=true,filename=/tmp/bench.jfr -XX:FlightRecorderOptions=stackdepth=128"
       BENCH_RUNTIME: "17"
       BENCH_THREADING: "platform"
       BENCH_FOOTPRINT: "high"
@@ -142,7 +142,7 @@ services:
     container_name: java21-virtual-low
     environment:
       <<: *matrix-env
-      JAVA_OPTS: -Xmx192m
+      JAVA_OPTS: "-Xmx192m -XX:StartFlightRecording=name=bench,settings=profile,disk=true,maxsize=256m,dumponexit=true,filename=/tmp/bench.jfr -XX:FlightRecorderOptions=stackdepth=128"
       BENCH_RUNTIME: "21"
       BENCH_THREADING: "virtual"
       BENCH_FOOTPRINT: "low"
@@ -164,7 +164,7 @@ services:
     container_name: java21-virtual-high
     environment:
       <<: *matrix-env
-      JAVA_OPTS: -Xmx3g
+      JAVA_OPTS: "-Xmx3g -XX:StartFlightRecording=name=bench,settings=profile,disk=true,maxsize=256m,dumponexit=true,filename=/tmp/bench.jfr -XX:FlightRecorderOptions=stackdepth=128"
       BENCH_RUNTIME: "21"
       BENCH_THREADING: "virtual"
       BENCH_FOOTPRINT: "high"
@@ -187,7 +187,7 @@ services:
     container_name: java25-virtual-arm-low
     environment:
       <<: *matrix-env
-      JAVA_OPTS: -Xmx384m
+      JAVA_OPTS: "-Xmx384m -XX:StartFlightRecording=name=bench,settings=profile,disk=true,maxsize=256m,dumponexit=true,filename=/tmp/bench.jfr -XX:FlightRecorderOptions=stackdepth=128"
       BENCH_RUNTIME: "25"
       BENCH_THREADING: "virtual"
       BENCH_FOOTPRINT: "low"
@@ -210,7 +210,7 @@ services:
     container_name: java25-virtual-arm-high
     environment:
       <<: *matrix-env
-      JAVA_OPTS: -Xmx3g
+      JAVA_OPTS: "-Xmx3g -XX:StartFlightRecording=name=bench,settings=profile,disk=true,maxsize=256m,dumponexit=true,filename=/tmp/bench.jfr -XX:FlightRecorderOptions=stackdepth=128"
       BENCH_RUNTIME: "25"
       BENCH_THREADING: "virtual"
       BENCH_FOOTPRINT: "high"
