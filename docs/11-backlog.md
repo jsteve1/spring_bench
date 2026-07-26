@@ -4,9 +4,11 @@
 > `docs/01`–`docs/10`. Ordered for dependency-safe delivery; each epic maps to the build order in
 > `REQUIREMENTS.md §Build Order`.
 >
-> **Progress snapshot (2026-07-05):** See `docs/HANDOFF.md` for DoD status. Epics **FOUND**, **PIN-01/02**,
-> **CORE/PERSIST/MODERN/LEGACY** (MVP + contract tests), **BUILD**, and **INFRA-01** are largely complete;
-> **ORCH**, **OBS**, and load-test integration remain open.
+> **Progress snapshot (2026-07-26):** See `docs/HANDOFF.md` for authoritative DoD / next-task status.
+> **Shipped on `main` (through PR #8):** FOUND–BUILD, INFRA-01..04 + PIN-02, ORCH MVP, OBS-01..05,
+> LOAD-01..05 (SSE image + scripts), DASH-01..05, STAND auth/smoke, CI-01..03. **Open:** live tunnel
+> proof (DoD #7), desktop Docker E2E, SSE multi-VU fan-out (open PR #9 — rebase onto `main`),
+> INFRA-05, OBS-06, RUNTIME-01, STAND-04 polish, DASH-06, stretch.
 
 **Story ID format:** `EPIC-STORY` (e.g. `CORE-03`).  
 **Priority:** P0 = blocking / DoD · P1 = core feature · P2 = polish · P3 = stretch (JPMC extras).

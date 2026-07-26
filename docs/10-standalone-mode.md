@@ -34,13 +34,19 @@ cd service
 ./mvnw -pl app-modern -am spring-boot:run -Dspring-boot.run.profiles=standalone
 
 # or the built jar (JRE 25 LTS recommended; any JRE 17+ works)
+mkdir -p data
 SPRING_PROFILES_ACTIVE=standalone \
 DB_PATH=./data/office.db \
 SERVER_PORT=8080 \
+APP_ADMIN_USER=admin \
+APP_ADMIN_PASSWORD='changeme' \
 java -jar apps/insurance-modern.jar
 ```
 - Single process, single SQLite file (`DB_PATH`). No external services.
-- Visit `http://localhost:8080/swagger-ui.html` for the API and `/health` for status.
+- `GET /health` is open; **writes require HTTP Basic** (`APP_ADMIN_USER` / `APP_ADMIN_PASSWORD`).
+- `/seed` is disabled under `standalone` unless `bench.seed.enabled=true`.
+- Visit `http://localhost:8080/swagger-ui.html` for the API and `http://localhost:8080/health`.
+- Smoke check: `./scripts/smoke-standalone.sh` (expects jars under `apps/`).
 - For very old hardware, the legacy jar (`insurance-j8.jar`) runs the same app on a Java 8 JRE.
 
 ---
@@ -60,11 +66,13 @@ Never commit secrets; use an untracked `.env` or the host's secret store.
 ---
 
 ## 4. Production Hygiene for Real Use
-- **Auth:** enable Spring Security (HTTP Basic or form login for a tiny office; JWT/OIDC if it
-  grows). All write endpoints require an authenticated user; `updatedBy` is taken from the
-  principal (`docs/08 §2`).
-- **Backups:** the whole DB is one file — schedule a copy of `DB_PATH` (SQLite Online Backup API or
-  a simple `VACUUM INTO` on a timer). Document restore.
+- **Auth (implemented):** Spring Security **HTTP Basic** on write endpoints in the `standalone`
+  profile. `updatedBy` comes from the authenticated principal (`docs/08 §2`). Reads/`/health` stay
+  open. Replace the example `changeme` password before any network exposure. Form login / JWT/OIDC
+  remain future options if the office app grows.
+- **Backups:** the whole DB is one file — schedule a copy of `DB_PATH` while the app is stopped, or
+  use SQLite Online Backup / `VACUUM INTO 'backup.db'` against a consistent snapshot. Restore by
+  stopping the app and replacing `DB_PATH` with the backup file.
 - **Migrations:** manage schema with **Flyway** (`db/migration/V1__init.sql`, …) so upgrades are
   versioned and repeatable — works fine with SQLite and plain JDBC.
 - **Logging:** structured JSON logs, request ids, no PII in logs (emails/phones are PII).
