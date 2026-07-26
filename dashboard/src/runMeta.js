@@ -36,11 +36,13 @@ export function runMetrics(run) {
     sseEvents: num(client.sse?.events),
     memMbPeak: num(server.memMbPeak),
     threadsPeak: num(server.threadsPeak),
-    contextSwitch: num(jfr["jdk.ThreadContextSwitchRate"]),
-    monitorEnter: num(jfr["jdk.JavaMonitorEnter"]),
-    threadPark: num(jfr["jdk.ThreadPark"]),
-    vthreadPinned: num(jfr["jdk.VirtualThreadPinned"]),
-    gcEvents: num(jfr["jdk.GarbageCollection"]),
+    cpuPctPeak: num(server.cpuPctPeak),
+    contextSwitch: num(server.contextSwitchRate ?? jfr["jdk.ThreadContextSwitchRate"]),
+    monitorEnter: num(server.monitorEnterCount ?? jfr["jdk.JavaMonitorEnter"]),
+    threadPark: num(server.threadParkCount ?? jfr["jdk.ThreadPark"]),
+    vthreadPinned: num(server.vthreadPinnedCount ?? jfr["jdk.VirtualThreadPinned"]),
+    gcEvents: num(server.gcEventCount ?? jfr["jdk.GarbageCollection"]),
+    blockedRatePeak: num(server.blockedRatePeak),
   };
 }
 

@@ -354,6 +354,29 @@ export default function App() {
         <Line data={series("gcPauseCount")} options={chartOpts} />
       </section>
 
+      <section>
+        <h2>Context-switch rate (/s)</h2>
+        <p className="compare-sub">
+          Live delta from Linux <code>/proc/self/status</code> via Actuator (
+          <code>bench.context.switches.*</code>). Forensic JFR counts still land on completed runs.
+        </p>
+        <Line data={series("contextSwitchRate")} options={chartOpts} />
+      </section>
+
+      <section>
+        <h2>Lock wait rate — blocked (/s)</h2>
+        <p className="compare-sub">
+          Live delta of cumulative <code>ThreadMXBean</code> blocked counts (
+          <code>bench.threads.blocked.total</code>).
+        </p>
+        <Line data={series("blockedRate")} options={chartOpts} />
+      </section>
+
+      <section>
+        <h2>Lock wait rate — waited (/s)</h2>
+        <Line data={series("waitedRate")} options={chartOpts} />
+      </section>
+
       {latest?.note && <p className="note">{latest.note}</p>}
       {latest && (
         <details>

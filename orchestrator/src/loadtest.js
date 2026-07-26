@@ -4,6 +4,8 @@ import { assertMatrixTarget, MATRIX_TARGETS } from "./matrix.js";
 import { getDocker } from "./dockerClient.js";
 import { demuxDockerStream } from "./dockerStream.js";
 import { collectJfr } from "./jfr.js";
+import { containerStatsSnapshot } from "./stats.js";
+import { emptyPeaks, mapJfrToServerFields, mergePeaks } from "./runPeaks.js";
 
 const RUNS_DIR = process.env.RUNS_DIR || path.join(process.cwd(), "runs");
 const ORCHESTRATOR_NAME = process.env.ORCHESTRATOR_CONTAINER || "orchestrator";
@@ -200,7 +202,13 @@ async function runK6(runId, request) {
   });
 
   await container.start();
+
+  const stopSignal = { stopped: false };
+  const peaksPromise = sampleTargetPeaks(request.targetName, stopSignal);
   const exitCode = await waitContainer(container);
+  stopSignal.stopped = true;
+  const peaks = await peaksPromise;
+
   let logs = "";
   try {
     const buf = await container.logs({ stdout: true, stderr: true, follow: false });
@@ -224,10 +232,32 @@ async function runK6(runId, request) {
     exitCode,
     logs,
     client: summarizeK6(summary),
+    peaks,
     artifacts: {
       k6Summary: `runs/${runId}/summary.json`,
     },
   };
+}
+
+async function sampleTargetPeaks(targetName, stopSignal) {
+  let peaks = emptyPeaks();
+  // Prime rate windows, then poll until k6 exits.
+  while (!stopSignal.stopped) {
+    try {
+      const snap = await containerStatsSnapshot(targetName);
+      peaks = mergePeaks(peaks, snap);
+    } catch {
+      // ignore transient docker/actuator failures during the run
+    }
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+  try {
+    const snap = await containerStatsSnapshot(targetName);
+    peaks = mergePeaks(peaks, snap);
+  } catch {
+    // ignore
+  }
+  return peaks;
 }
 
 export function queueLoadTest(body) {
@@ -264,6 +294,7 @@ export function queueLoadTest(body) {
       } catch (err) {
         jfr = { ok: false, error: err.message };
       }
+      const jfrFields = mapJfrToServerFields(jfr?.aggregates);
       const updated = {
         ...readRecord(runId),
         finishedAt: new Date().toISOString(),
@@ -271,6 +302,8 @@ export function queueLoadTest(body) {
         exitCode: result.exitCode,
         client: result.client,
         server: {
+          ...result.peaks,
+          ...jfrFields,
           jfrAggregates: jfr?.aggregates || null,
         },
         artifacts: {

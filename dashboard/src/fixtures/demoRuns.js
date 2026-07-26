@@ -23,6 +23,11 @@ export const DEMO_RUNS = [
     server: {
       memMbPeak: 188,
       threadsPeak: 64,
+      cpuPctPeak: 72,
+      blockedRatePeak: 4,
+      contextSwitchRate: 120,
+      monitorEnterCount: 40,
+      vthreadPinnedCount: 0,
       jfrAggregates: {
         "jdk.ThreadContextSwitchRate": 120,
         "jdk.JavaMonitorEnter": 40,
@@ -55,6 +60,11 @@ export const DEMO_RUNS = [
     server: {
       memMbPeak: 420,
       threadsPeak: 210,
+      cpuPctPeak: 88,
+      blockedRatePeak: 18,
+      contextSwitchRate: 980,
+      monitorEnterCount: 220,
+      vthreadPinnedCount: 0,
       jfrAggregates: {
         "jdk.ThreadContextSwitchRate": 980,
         "jdk.JavaMonitorEnter": 220,

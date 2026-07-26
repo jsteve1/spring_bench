@@ -215,10 +215,12 @@ export default function RunCompare({ runs, onUseDemo }) {
                 ["RPS", (r) => fmt(runMetrics(r).rps)],
                 ["Error rate", (r) => pct(runMetrics(r).errorRate)],
                 ["SSE events", (r) => fmt(runMetrics(r).sseEvents)],
+                ["Peak CPU %", (r) => fmt(runMetrics(r).cpuPctPeak)],
                 ["Peak mem MB", (r) => fmt(runMetrics(r).memMbPeak)],
                 ["Peak threads", (r) => fmt(runMetrics(r).threadsPeak)],
                 ["Context-switch", (r) => fmt(runMetrics(r).contextSwitch)],
                 ["MonitorEnter", (r) => fmt(runMetrics(r).monitorEnter)],
+                ["Blocked rate peak", (r) => fmt(runMetrics(r).blockedRatePeak)],
                 ["VT pinned", (r) => fmt(runMetrics(r).vthreadPinned)],
               ].map(([label, getter]) => (
                 <tr key={label}>
