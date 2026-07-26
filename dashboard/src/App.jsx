@@ -221,7 +221,7 @@ export default function App() {
               onChange={(e) => setLoadForm({ ...loadForm, mode: e.target.value })}
             >
               <option value="rest">REST</option>
-              <option value="sse">SSE (needs bench/k6-sse image)</option>
+              <option value="sse">SSE (/events via bench/k6-sse)</option>
             </select>
           </label>
           <label>
