@@ -150,25 +150,29 @@ the default 10.
 > **Note:** `java17-virtual-*` is deliberately absent — virtual threads need Java 21+ (§3), so such
 > a row would be platform threads under a misleading name.
 
-**First recorded A/B (2026-07-26)** — Java 21, 0.5 cpu / 256m / `-Xmx192m`, threading the only
-variable, single run each on one desktop host:
+**Recorded A/B** — Java 21, 0.5 cpu / 256m / `-Xmx192m`, threading the only variable. Medians of
+**3 reps** with a discarded warmup, from the full sweep in **`docs/12-benchmark-report.md`**:
 
 | Load | Metric | virtual | platform |
 | :-- | :-- | --: | --: |
-| REST 10 VUs / 30s | throughput | 43.9 rps | 42.9 rps |
-| | p95 latency | 4.8 ms | 5.4 ms |
-| | peak memory | 188 MB | 245 MB |
-| | peak OS threads | 22 | 31 |
-| | peak context switches | 704/s | 1586/s |
-| SSE 15 held conns / 20s | peak memory | 205 MB | 255 MB |
-| | peak OS threads | 21 | 29 |
+| REST 10 VUs / 30s | throughput | 42.4 rps | 42.9 rps |
+| | p95 latency | 5.16 ms | 5.86 ms |
+| | peak container memory | 178 MB | 163 MB |
+| | peak Java heap | 42 MB | 49 MB |
+| | peak OS threads | **22** | 31 |
+| | peak context switches | 894/s | 1261/s |
+| SSE 12 held conns / 20s | peak OS threads | **21** | 31 |
 | | `jdk.VirtualThreadPinned` | 0 | 0 |
 
-Virtual threads cost ~55 MB less peak memory, ~9 fewer OS threads, and roughly **half** the
-context-switch rate at equal throughput. The SSE gap is smaller than a naive "one OS thread per
-connection" model predicts because Spring MVC's `SseEmitter` is already async and releases the
-container thread — the platform row still pushed peak memory to the 256 MB cgroup ceiling.
-Treat these as directional: one run per cell, not a statistically controlled benchmark.
+Virtual threads reliably cut OS threads (22 vs 31, identical in every rep) and reduced context
+switching ~30%. Throughput and latency were indistinguishable, because this load never saturates
+the server.
+
+> **Correction:** an earlier single-run version of this table claimed virtual threads saved ~55 MB of
+> memory. Three reps show the opposite — virtual used ~15 MB *more* container RSS while using ~7 MB
+> *less* Java heap. The original figure compared a long-running container against a freshly started
+> one. Loom's memory advantage should appear at high connection counts, which 12 connections does not
+> reach; see `docs/12 §4.3`.
 
 ---
 
