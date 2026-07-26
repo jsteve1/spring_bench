@@ -3,8 +3,10 @@
 > **Read first:** `REQUIREMENTS.md` · `docs/11-backlog.md` · `docs/01-version-matrix.md`  
 > **Truth for “what’s built”:** this file. Spec docs (`01`–`10`) describe the intended design; backlog IDs map work items.
 
-**Repo:** `jsteve1/spring_bench` · **Default branch:** `main` @ `8340553` (PR **#8** merged)  
-**CI on `main`:** green (unit / service+smoke / compose / OpenAPI) — run `30208251961`
+**Repo:** `jsteve1/spring_bench` · **Default branch:** `main` @ `ebd4f64` (PRs **#8**, **#10** merged)  
+**CI on `main`:** green (unit / service+smoke / compose / OpenAPI)  
+**In flight:** PR **#9** (`feat/k6-sse`) — SSE fan-out, merged with `main` and **verified end-to-end
+on desktop Docker 29.6.1 (2026-07-26)**; ready to merge.
 
 ---
 
@@ -18,7 +20,7 @@
 | Compose matrix | **Done** | 10 rows, digests, JFR in `JAVA_OPTS`, `profiles: [tools]` for `k6-sse`, `profiles: [tunnel]` for cloudflared |
 | Orchestrator (Node 24) | **Done (MVP)** | Targets start/stop/restart; live stats WS; k6 REST+SSE; JFR collect; run records + **peaks** + **`runs/{id}/stats-series.json`** |
 | Dashboard (React) | **Done (MVP)** | Targets + load form; live CPU/mem/threads/heap/GC/**CS/lock** charts; historical **RunCompare** (+ demo fixtures) |
-| Load scripts | **Done (MVP)** | `loadtests/rest.js`, `sse.js` + `Dockerfile.k6-sse` (`xk6-sse@v0.1.11`) |
+| Load scripts | **Done (MVP)** | `loadtests/rest.js`, `sse.js` + `Dockerfile.k6-sse` (`xk6-sse@v0.1.11`); SSE runs **one container per VU** and merges summaries |
 | Standalone | **Done** | HTTP Basic on writes; `/seed` gated; `scripts/smoke-standalone.sh` |
 | CI | **Done** | `.github/workflows/ci.yml` — CI-01..03 (+ standalone smoke) |
 | Tunnel | **Wired, not proven** | Compose + `.env.example` + `infra/cloudflared/README.md` — needs real `TUNNEL_TOKEN` on a Docker host |
@@ -30,8 +32,8 @@
 | 1 | `build-all` → `apps/` | ✅ |
 | 2 | OpenAPI parity (legacy vs modern) | ✅ (+ CI) |
 | 3 | `docker compose config` + digests | ✅ (+ CI) |
-| 4 | Orchestrator start/stop + stack | ✅ (code); **desktop Docker E2E still required** |
-| 5 | k6 + live metrics + JFR + history | ✅ MVP (+ stats series); **desktop E2E still required** |
+| 4 | Orchestrator start/stop + stack | ✅ verified on desktop Docker 29.6.1 |
+| 5 | k6 + live metrics + JFR + history | ✅ verified — REST + SSE fan-out, JFR, peaks, stats series |
 | 6 | No `SQLITE_BUSY` under write load | ✅ (`ConcurrentWriteLoadTest`) |
 | 7 | cloudflared public hostname | ⚠️ **code/docs only** — no live token verification in CI/cloud |
 | 8 | Standalone auth | ✅ (+ CI smoke) |
@@ -49,20 +51,25 @@
 
 ## 2. Important known gaps (read before coding)
 
-1. **SSE concurrency fidelity (high priority)**  
-   Current `main` launches **one** `bench/k6-sse` container per SSE loadtest. `xk6-sse` historically does **not** multiplex concurrent held connections well inside a single process.  
-   **Open PR #9** (`feat/k6-sse`) adds **1 container per VU fan-out** + merges `client.sse` metrics. That branch’s HANDOFF is **stale** (claims standalone/tunnel missing — those landed in PR #8). **Rebase #9 onto current `main` before merge**; do not take its HANDOFF wholesale.
+1. **SSE fan-out cost**  
+   Each VU is a separate `bench/k6-sse` container, so a 200-VU SSE run spawns 200 containers in batches of `SSE_FANOUT_CONCURRENCY` (default 20). That is heavy on the load generator host and is the load generator's limit, not the target's. Raise VUs gradually and watch host memory.
 
-2. **Desktop Docker E2E not proven in cloud agents**  
-   Cloud Docker (cgroup/overlay) was flaky. Prefer a host with Docker Engine ≥ 27: build JARs → `docker compose --profile tools build k6-sse` → up orchestrator + one target → REST then SSE → confirm JFR + compare UI.
+2. **Context-switch counters can dip**  
+   `JvmDeepSampler` sums `voluntary/nonvoluntary_ctxt_switches` across `/proc/self/task/*/status` (the process-wide value; `/proc/self/status` alone reports only the idle main thread and reads as a flat 0). Because it sums live OS threads, the total can decrease when threads exit; `ratePerSec` returns `null` on a negative delta, which renders as a chart gap. Expected, not a bug.
 
-3. **Default admin password**  
+3. **Cloud agents cannot run the matrix**  
+   Cloud Docker (cgroup/overlay) is unreliable here. Do matrix work on a host with Docker Engine ≥ 27; cloud agents can still do JAR builds, standalone smoke, unit tests, and `docker compose config`.
+
+4. **Default admin password**  
    Docs/examples use `changeme`. Fine for local; never expose via tunnel without Cloudflare Access + a real secret.
 
-4. **REST load mix is light**  
+5. **REST load mix is light**  
    `rest.js` does `/health`, list members, and creates a member on ~1/5 VUs — enough for WAL concurrency, not a full CRUD fuzz suite.
 
-5. **Optional matrix rows** (`docs/01 §4.2`) are **documented only** — not in default compose (`INFRA-05`).
+6. **Optional matrix rows** (`docs/01 §4.2`) are **documented only** — not in default compose (`INFRA-05`).
+
+7. **Only `java21-virtual-low` has been exercised end-to-end.** The other nine rows parse and start,
+   but no comparison run across runtimes/threading has been recorded yet.
 
 ---
 
@@ -70,16 +77,18 @@
 
 ### P0 — Finish DoD / prove the product
 
-1. **Desktop E2E validation pass** (DoD #4/#5 on real Docker)  
-   - `cd service && ./build-all.sh`  
-   - `docker compose --profile tools build k6-sse`  
-   - `docker compose up -d orchestrator java21-virtual-low`  
-   - Dashboard / `POST /api/loadtest` with `mode=rest` then `mode=sse`  
-   - Confirm `runs/{id}.json`, `summary.json`, `stats-series.json`, `bench.jfr`, live charts, RunCompare  
+1. **Merge PR #9** — SSE fan-out is merged with `main` and E2E-verified (evidence in §4). Nothing
+   blocking beyond review.
 
-2. **Land SSE fan-out** — rebase/merge **PR #9** (or re-implement fan-out on `main`) so high-VU SSE actually holds N connections. Update `docs/06` + this handoff after merge.
+2. **DoD #7** — on a Docker host: set `TUNNEL_TOKEN` in `.env`, `docker compose --profile tunnel up -d`,
+   verify the public hostname reaches the orchestrator, then put Cloudflare Access in front of it.
+   This is the last unproven DoD item and needs a Cloudflare account, not more code.
 
-3. **DoD #7** — on a Docker host: set `TUNNEL_TOKEN`, `docker compose --profile tunnel up -d`, verify public hostname → orchestrator, enable Cloudflare Access.
+3. **First real comparison run** — the point of the project. Bring up a platform/virtual pair on the
+   same runtime (e.g. `java17-platform-mid` vs `java21-virtual-low`, or add `java21-platform-low` per
+   INFRA-05), run identical REST and SSE profiles against each, then read the deltas in RunCompare
+   (peak mem, threads, context-switch rate, `jdk.VirtualThreadPinned`). Nine of ten rows have never
+   been load-tested.
 
 ### P1 — Cleaner science & polish
 
@@ -125,9 +134,25 @@ docker compose up -d --build orchestrator java21-virtual-low
 # wait for http://localhost:8087/health
 curl -s -X POST http://localhost:3000/api/loadtest \
   -H 'Content-Type: application/json' \
-  -d '{"mode":"rest","targetName":"java21-virtual-low","vus":5,"duration":"20s","rampStages":"full:20s"}'
-# then mode=sse with small VUs until fan-out lands
+  -d '{"mode":"rest","targetName":"java21-virtual-low","vus":10,"duration":"30s","rampStages":"0:5s,full:20s,0:5s"}'
+curl -s -X POST http://localhost:3000/api/loadtest \
+  -H 'Content-Type: application/json' \
+  -d '{"mode":"sse","targetName":"java21-virtual-low","vus":15,"duration":"20s","dropRate":0.1}'
+# poll GET /api/runs/{runId} until status=completed
 ```
+
+### E2E evidence (2026-07-26, Docker Engine 29.6.1, `java21-virtual-low`)
+
+| Check | Result |
+| :-- | :-- |
+| Target health | `UP`, Java 21.0.11, Boot 4.1.0, `virtualThreadsEnabled=true`, maxHeap 185 MB |
+| REST, 10 VUs / 30s | 577 iterations, 41.6 rps, p50 2.2 ms, p95 30 ms, 0 errors |
+| SSE, 15 VUs / 20s | 15 concurrent containers, 15 connections, 102 events, 1 drop, exit 0 |
+| Server peaks | mem 240 MB, threads 22, CPU 36%, heap 41 MB |
+| Live deep metrics | context-switch rate 200–680/s, waited rate peak 227/s |
+| JFR | `bench.jfr` 6.0 MB (REST) / 7.2 MB (SSE); `VirtualThreadPinned=0`, `ThreadPark≈17k` |
+| Artifacts | `summary.json`, `summary-{n}.json` (SSE), `stats-series.json` (7 samples), `bench.jfr` |
+| Maven build | `BUILD SUCCESS`, 15 tests green (write-load + both contract suites) |
 
 ---
 
@@ -178,7 +203,11 @@ Full `-Xmx` / footprint table: `docs/01-version-matrix.md` §4.1.
 
 ## 7. PR / branch notes for the next agent
 
-- Merged platform MVP: **PR #8** (`cursor/cloud-agent-1785075987234-sxq3t`).  
-- Open follow-up: **PR #9** (`feat/k6-sse`) — SSE fan-out; **rebase onto `main`** before merge.  
+- Merged platform MVP: **PR #8**; docs sync: **PR #10**.  
+- Open: **PR #9** (`feat/k6-sse`) — SSE fan-out, merged with `main`, conflicts resolved, E2E verified.  
 - Prefer one-variable PRs; keep shells free of business logic (core only).  
-- Cloud agent Docker may fail — fall back to host JAR smoke + document desktop verification.
+- On Windows, `service/build-all.ps1` gates on Maven's exit code — do not reintroduce a bare
+  `& $Mvn` under `$ErrorActionPreference = "Stop"`, since Maven's SLF4J warning goes to stderr and
+  aborts the script before the JARs are copied.  
+- After changing service code, rebuild JARs **and** restart the matrix container; the JAR is a
+  read-only bind mount, so a running container keeps the old bytes.
