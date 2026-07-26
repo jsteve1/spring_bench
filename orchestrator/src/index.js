@@ -11,6 +11,7 @@ import {
   startTarget,
   stopTarget,
 } from "./targets.js";
+import { collectMatrixStats } from "./stats.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -19,7 +20,9 @@ const wss = new WebSocketServer({ server, path: "/api/stats/stream" });
 
 const PORT = process.env.PORT || 3000;
 const RUNS_DIR = process.env.RUNS_DIR || path.join(__dirname, "..", "runs");
-const DASHBOARD_DIST = process.env.DASHBOARD_DIST || path.join(__dirname, "..", "..", "dashboard", "dist");
+const DASHBOARD_DIST =
+  process.env.DASHBOARD_DIST || path.join(__dirname, "..", "..", "dashboard", "dist");
+const STATS_INTERVAL_MS = Number(process.env.STATS_INTERVAL_MS || 2000);
 
 fs.mkdirSync(RUNS_DIR, { recursive: true });
 
@@ -68,6 +71,19 @@ app.post("/api/targets/:name/restart", async (req, res, next) => {
   }
 });
 
+/** One-shot JSON snapshot (same payload as WS frames). */
+app.get("/api/stats", async (_req, res, next) => {
+  try {
+    if (!dockerAvailable()) {
+      res.status(503).json({ error: "Docker socket not available" });
+      return;
+    }
+    res.json(await collectMatrixStats());
+  } catch (err) {
+    next(err);
+  }
+});
+
 app.post("/api/loadtest", (req, res) => {
   const runId = crypto.randomUUID();
   const record = {
@@ -104,16 +120,47 @@ app.use((err, _req, res, _next) => {
   });
 });
 
+let latestStats = {
+  ts: new Date().toISOString(),
+  source: "docker",
+  targets: [],
+  note: dockerAvailable() ? null : "Docker socket not available",
+};
+
+async function refreshStats() {
+  if (!dockerAvailable()) {
+    latestStats = {
+      ts: new Date().toISOString(),
+      source: "docker",
+      targets: [],
+      note: "Docker socket not available",
+    };
+    return;
+  }
+  try {
+    latestStats = await collectMatrixStats();
+  } catch (err) {
+    latestStats = {
+      ts: new Date().toISOString(),
+      source: "docker",
+      targets: [],
+      note: err.message,
+    };
+  }
+}
+
+setInterval(() => {
+  refreshStats().catch(() => {});
+}, STATS_INTERVAL_MS);
+refreshStats().catch(() => {});
+
 wss.on("connection", (socket) => {
+  socket.send(JSON.stringify(latestStats));
   const timer = setInterval(() => {
-    socket.send(
-      JSON.stringify({
-        ts: new Date().toISOString(),
-        targets: [],
-        note: "ORCH-04: live docker stats not wired yet",
-      }),
-    );
-  }, 2000);
+    if (socket.readyState === socket.OPEN) {
+      socket.send(JSON.stringify(latestStats));
+    }
+  }, STATS_INTERVAL_MS);
   socket.on("close", () => clearInterval(timer));
 });
 
