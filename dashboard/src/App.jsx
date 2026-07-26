@@ -357,8 +357,9 @@ export default function App() {
       <section>
         <h2>Context-switch rate (/s)</h2>
         <p className="compare-sub">
-          Live delta from Linux <code>/proc/self/status</code> via Actuator (
-          <code>bench.context.switches.*</code>). Forensic JFR counts still land on completed runs.
+          Live delta of <code>/proc/self/task/*/status</code> summed over OS threads, via Actuator (
+          <code>bench.context.switches.*</code>). Dips to a gap when threads exit. Forensic JFR
+          counts still land on completed runs.
         </p>
         <Line data={series("contextSwitchRate")} options={chartOpts} />
       </section>

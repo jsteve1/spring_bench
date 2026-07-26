@@ -19,11 +19,11 @@ on desktop Docker 29.6.1 (2026-07-26)**; ready to merge.
 | Artifacts | **Done** | `service/build-all.sh` → `apps/insurance-{j8,j11,j17,j21,legacy,modern}.jar` |
 | Compose matrix | **Done** | 10 rows, digests, JFR in `JAVA_OPTS`, `profiles: [tools]` for `k6-sse`, `profiles: [tunnel]` for cloudflared; `docker-compose.extra.yml` adds 3 opt-in one-variable rows (INFRA-05) |
 | Orchestrator (Node 24) | **Done (MVP)** | Targets start/stop/restart; live stats WS; k6 REST+SSE; JFR collect; run records + **peaks** + **`runs/{id}/stats-series.json`** |
-| Dashboard (React) | **Done (MVP)** | Targets + load form; live CPU/mem/threads/heap/GC/**CS/lock** charts; historical **RunCompare** (+ demo fixtures) |
+| Dashboard (React) | **Done (MVP)** | Targets + load form; live CPU/mem/threads/heap/GC/**CS/lock** charts; historical **RunCompare** (+ demo fixtures); **built into the orchestrator image** and served at `:3000` |
 | Load scripts | **Done (MVP)** | `loadtests/rest.js`, `sse.js` + `Dockerfile.k6-sse` (`xk6-sse@v0.1.11`); SSE runs **one container per VU** and merges summaries |
 | Standalone | **Done** | HTTP Basic on writes; `/seed` gated; `scripts/smoke-standalone.sh` |
 | CI | **Done** | `.github/workflows/ci.yml` — CI-01..03 (+ standalone smoke) |
-| Tunnel | **Wired, not proven** | Compose + `.env.example` + `infra/cloudflared/README.md` — needs real `TUNNEL_TOKEN` on a Docker host |
+| Tunnel | **Wired, not proven** | Compose + `.env.example` + `infra/cloudflared/README.md` — needs real `TUNNEL_TOKEN` on a Docker host. Route the public hostname to `http://orchestrator:3000` (container DNS on `matrix-net`, **not** `localhost`), then put Cloudflare Access in front — the orchestrator drives the Docker socket. |
 
 ### Definition of Done
 

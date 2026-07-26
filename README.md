@@ -82,17 +82,17 @@ docker compose --profile tunnel up -d
 See `infra/cloudflared/README.md`. Put Cloudflare Access in front of the hostname — the
 orchestrator mounts the Docker socket.
 
-### 5. Dashboard (dev)
+### 5. Dashboard
+
+The orchestrator image builds the dashboard and serves it at **`http://localhost:3000`**, so
+`docker compose up -d --build orchestrator` is all you need — this is also what a Cloudflare tunnel
+publishes.
+
+For UI work, run Vite instead (hot reload, proxies `/api` to `:3000`):
 
 ```bash
 cd orchestrator && npm install && npm start
-cd dashboard && npm install && npm run dev
-```
-
-Build static dashboard for the orchestrator container:
-
-```bash
-cd dashboard && npm run build
+cd dashboard && npm install && npm run dev   # http://localhost:5173
 ```
 
 ## Repo layout
