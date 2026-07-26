@@ -80,14 +80,14 @@ on desktop Docker 29.6.1 (2026-07-26)**; ready to merge.
 
 ### P0 — Prove capacity (not just cost)
 
-1. **Capacity REST sweeps** — `rest.js` now defaults to `THINK_TIME=0` (no pacing). Re-run
-   `.\scripts\run-benchmarks.ps1 -Vus 50 -ThinkTime 0` (then 100+) on the Java 21 pair first;
-   expect RPS to separate by runtime instead of flatlining near 42. Document in `docs/12` or a
-   follow-on report section.
+1. ~~**Capacity REST on Java 21 pair**~~ — done (medians in `docs/12` §6): virtual **482 rps** /
+   22 threads vs platform **318 rps** / 84 threads at 50 VUs, `THINK_TIME=0`.
 2. **SSE scale** — push held connections toward 200–1000 (watch host memory; fan-out is one
-   container per VU). This is where virtual threads should separate on OS thread count / RSS.
+   container per VU). This is where virtual threads should separate on RSS.
 3. **Optional: Cloudflare Access** — rerun `setup-tunnel.ps1 -AccessEmail …` when the API token
    has `Access: Apps and Policies: Edit`.
+4. Optional: capacity at 100–200 VUs and/or `-high` footprints; broader runtime sweep with
+   `THINK_TIME=0`.
 
 ### P1 — Cleaner science & polish
 

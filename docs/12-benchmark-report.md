@@ -1,7 +1,7 @@
 # 12 — Benchmark Report (2026-07-26)
 
-First full sweep of the matrix. **23 measured runs**, ~35 minutes wall clock, produced by
-`scripts/run-benchmarks.ps1` and aggregated by `scripts/analyze-benchmarks.mjs`.
+First full sweep of the matrix. **23 paced runs** (§1–5), then a **capacity follow-up** on the
+Java 21 pair (§6). Produced by `scripts/run-benchmarks.ps1` and `scripts/analyze-benchmarks.mjs`.
 
 > Read §5 before quoting anything from here. Two of the four headline numbers are solid; one is
 > high-variance noise, and one earlier claim in `docs/01 §4.2` turned out to be wrong.
@@ -182,20 +182,39 @@ difference: a virtual thread unmounting is a continuation yield, which JFR does 
 
 ---
 
-## 6. Next experiments, in value order
+## 6. Capacity follow-up (2026-07-26, Java 21 pair)
 
-1. **Capacity mode is wired** (`THINK_TIME=0` default in `rest.js` / orchestrator / dashboard /
-   `run-benchmarks.ps1 -ThinkTime`). First smoke (50 VUs, 25s, one-variable Java 21 pair):
+Same host and one-variable pair as §4.3, but **`THINK_TIME=0`**, **50 VUs**, 30s,
+ramp `0:5s,full:20s,0:5s`, **medians of 3** (warmup discarded). Script:
 
-   | Target | rps | p95 | notes |
-   | :-- | --: | --: | :-- |
-   | `java21-virtual-low` | ~95 | ~506 ms | completed |
-   | `java21-platform-low` | ~29 | ~1.9 s | same cgroup class; k6 p95 threshold tripped |
+`.\scripts\run-benchmarks.ps1 -Vus 50 -ThinkTime 0 -Targets java21-virtual-low,java21-platform-low -SseTargets @() -Reps 3`
 
-   Re-run `.\scripts\run-benchmarks.ps1 -Vus 50 -ThinkTime 0` (then 100+) for medians of 3 and
-   append a capacity section here.
-2. **Scale SSE to 200–1000 connections.** This is where virtual threads should separate decisively,
-   and where §4.3's memory result may well invert.
+| Target | rps | p50 | p95 | err | memMbPeak | threadsPeak | cpuPctPeak |
+| :-- | --: | --: | --: | --: | --: | --: | --: |
+| `java21-virtual-low` | **481.6** | 10.0 | **123.6** | 0 | 180.4 | **22** | 51.5 |
+| `java21-platform-low` | **318.0** | 2.1 | **291.1** | 0 | 183.3 | **84** | 51.9 |
+
+### What this shows
+
+- **Throughput finally separates.** Virtual threads deliver ~**1.5×** RPS versus platform on the
+  same Boot 4.1 / Java 21 / low footprint cell. The paced sweep (§3) could not show this.
+- **Tail latency favors virtual** under this load (p95 124 ms vs 291 ms) even though p50 is higher —
+  platform pays more in the tail when saturated.
+- **OS thread count remains the clean Loom signal:** 22 vs 84 at nearly identical RSS and CPU %.
+- Memory still does not favor virtual at this scale (~180 MB both); that claim stays deferred to
+  larger SSE holds.
+
+An earlier single-shot smoke (~95 vs ~29 rps) was directionally right but understated absolute
+throughput; use the medians above for quotes.
+
+---
+
+## 7. Next experiments, in value order
+
+1. ~~Capacity REST on the Java 21 pair~~ — done (§6). Optionally push VUs to 100–200 and/or include
+   `-high` footprints.
+2. **Scale SSE to 200–1000 connections.** This is where virtual threads should separate decisively
+   on RSS / OS threads, and where §4.3's memory result may well invert.
 3. **5+ reps on the context-switch metric**, or switch from peak to windowed mean, so §5.2 resolves.
 4. **Parse JFR properly** (`jfr summary --json` or the JMC parser) to replace line-count proxies.
 5. **Measure the remaining rows:** `java25` pair for ARM emulation cost, `-high` footprints for
@@ -205,12 +224,12 @@ difference: a virtual thread unmounting is a continuation yield, which JFR does 
 
 ---
 
-## 7. Reproducing
+## 8. Reproducing
 
 ```powershell
 docker compose -f docker-compose.yml -f docker-compose.extra.yml up -d --build orchestrator
-.\scripts\run-benchmarks.ps1 -Vus 50 -ThinkTime 0   # capacity sweep (~same wall clock as first report)
-# or omit -ThinkTime / pass -ThinkTime 0.2 to reproduce the paced ~42 rps sweep
+.\scripts\run-benchmarks.ps1 -Vus 50 -ThinkTime 0 -Targets java21-virtual-low,java21-platform-low -SseTargets @() -Reps 3
+# paced first sweep: add -ThinkTime 0.2 -Vus 10 (and the broader -Targets list)
 node scripts\analyze-benchmarks.mjs
 ```
 
