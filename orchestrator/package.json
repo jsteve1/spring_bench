@@ -8,7 +8,8 @@
   },
   "scripts": {
     "start": "node src/index.js",
-    "dev": "node --watch src/index.js"
+    "dev": "node --watch src/index.js",
+    "test:unit": "node scripts/check-run-peaks.mjs"
   },
   "dependencies": {
     "dockerode": "^4.0.9",

@@ -17,7 +17,9 @@ Two scripts, both fully parameterized via env (orchestrator passes `-e KEY=VALUE
 | `DROP_RATE` | Connection drop probability (0.0–1.0) to simulate flaky clients |
 
 ### 1.1 `rest.js`
-- Exercises the CRUD contract (`docs/04 §2`) with a configurable read/write mix.
+- Exercises the CRUD contract (`docs/04 §2`) with a **light** read/write mix (as shipped: `/health`,
+  paginated `GET /members`, and member create on ~1/5 VUs). Enough to stress SQLite WAL concurrency;
+  not a full CRUD fuzz suite.
 - Use `ramping-vus` executor built from `RAMP_STAGES`.
 - Thresholds on `http_req_duration` (p95/p99) and `http_req_failed`.
 
@@ -27,23 +29,26 @@ Use the **`xk6-sse`** extension and build a custom k6 binary:
 
 ```dockerfile
 # loadtests/Dockerfile.k6-sse — custom k6 with SSE support
-FROM grafana/xk6:1.1.6 AS build
-ENV GOTOOLCHAIN=auto
-RUN xk6 build --k6-version v1.8.0 --with github.com/phymbert/xk6-sse@v0.1.12 --output /tmp/k6
+# k6 v1.8.0 needs Go >= 1.25 → use grafana/xk6:1.4.7
+FROM grafana/xk6:1.4.7 AS build
+RUN xk6 build v1.8.0 --with github.com/phymbert/xk6-sse@v0.1.11 -o /tmp/k6
 FROM grafana/k6:1.8.0
 USER root
 COPY --from=build /tmp/k6 /usr/bin/k6
 USER k6
 ```
-- `sse.js` imports `sse` from `k6/x/sse`, opens and **holds** `/events` for most of
-  `DURATION` (via request timeout), and counts received heartbeat events.
-- Randomly drops/reopens a fraction of connections per `DROP_RATE`.
-- **Parallelism note:** xk6-sse is synchronous and does not hold many SSE streams reliably
-  inside one k6 process. The orchestrator therefore fans out **one `bench/k6-sse` container
-  per VU** and merges summaries (see `SSE_FANOUT_CONCURRENCY`).
+- `sse.js` imports `sse` from `k6/x/sse`, opens and **holds** `/events` for `HOLD`/`DURATION`,
+  and counts received events — this is what surfaces parked-connection memory footprint.
+- Randomly closes a fraction of connections early per `DROP_RATE` (flaky-client simulation).
 - This is the headline test: platform threads (one OS thread per held connection) vs virtual
   threads (cheap parked continuations) diverge sharply here.
-- Build: `docker compose --profile tools build k6-sse` → image `bench/k6-sse`.
+- **Build status (`main`):** `bench/k6-sse` builds via `docker compose --profile tools build k6-sse`
+  (`xk6-sse@v0.1.11`). Orchestrator launches **one** SSE container per loadtest today.
+- **Known limit:** `xk6-sse` does not reliably multiplex many concurrent held connections in a
+  single k6 process. For faithful high-VU SSE, prefer **one container per VU** (fan-out) and merge
+  summaries — see open PR **#9** / `docs/HANDOFF.md`. Until fan-out lands, keep SSE VUs small when
+  validating.
+- Build: `docker build -f loadtests/Dockerfile.k6-sse -t bench/k6-sse .` (or compose profile above).
 
 ### 1.3 Output
 - Emit a machine-readable summary (`handleSummary` → JSON) the orchestrator ingests: p50/p95/p99

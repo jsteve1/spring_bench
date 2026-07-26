@@ -114,3 +114,6 @@ Expose only the orchestrator/dashboard to the public web with no inbound router 
 ```
 - Route the public hostname to the internal service name (e.g. `bench.example.com → http://orchestrator:PORT`).
 - Keep `TUNNEL_TOKEN` in an untracked `.env`. Recommend layering Cloudflare Access on top.
+- **Build status:** compose wires `cloudflared` under `profiles: [tunnel]` (see root `.env.example`
+  and `infra/cloudflared/README.md`). DoD #7 is **not** complete until a real token is used on a
+  Docker host and the public hostname reaches the orchestrator.

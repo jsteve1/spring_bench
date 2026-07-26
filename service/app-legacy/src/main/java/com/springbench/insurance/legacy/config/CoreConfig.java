@@ -40,4 +40,10 @@ public class CoreConfig {
     BenchProperties benchProperties() {
         return new BenchProperties();
     }
+
+    @Bean
+    @org.springframework.boot.context.properties.ConfigurationProperties(prefix = "app")
+    AppProperties appProperties() {
+        return new AppProperties();
+    }
 }

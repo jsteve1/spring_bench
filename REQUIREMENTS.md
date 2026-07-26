@@ -37,6 +37,10 @@ This is the master index. Detailed, scoped requirements live in `docs/`. Read th
 
 ## Definition of Done
 
+Status of each item is tracked in **`docs/HANDOFF.md`** (authoritative for agents). Summary as of
+2026-07-26: items **1–6 and 8** are implemented and CI-covered where noted; item **7** (cloudflared)
+is wired in compose/docs but needs a real `TUNNEL_TOKEN` on a Docker host.
+
 1. `service/build-all` produces all runtime artifacts into `./apps/`.
 2. Both shells expose an **identical contract** (`docs/08`): their `/v3/api-docs` diff is empty.
 3. `docker compose config` validates; every matrix service parses with pinned images.

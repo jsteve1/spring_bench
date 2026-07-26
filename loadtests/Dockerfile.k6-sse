@@ -1,10 +1,10 @@
-# Custom k6 with xk6-sse for faithful long-lived /events load (LOAD-02).
+﻿# Custom k6 with xk6-sse for faithful long-lived /events load (LOAD-02).
 # Build: docker build -f loadtests/Dockerfile.k6-sse -t bench/k6-sse .
 # Or:    docker compose --profile tools build k6-sse
-FROM grafana/xk6:1.1.6 AS build
-# k6 v1.8.0 needs Go >= 1.25; let the toolchain auto-download.
-ENV GOTOOLCHAIN=auto
-RUN xk6 build --k6-version v1.8.0 --with github.com/phymbert/xk6-sse@v0.1.12 --output /tmp/k6
+#
+# k6 v1.8.0 needs Go >= 1.25; grafana/xk6:1.4.7 provides that toolchain.
+FROM grafana/xk6:1.4.7 AS build
+RUN xk6 build v1.8.0 --with github.com/phymbert/xk6-sse@v0.1.11 -o /tmp/k6
 
 FROM grafana/k6:1.8.0
 USER root
