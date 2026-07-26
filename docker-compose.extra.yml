@@ -1,0 +1,102 @@
+# INFRA-05 — optional one-variable comparison rows (docs/01 §4.2).
+#
+# The default matrix in docker-compose.yml varies several knobs at once. These rows
+# change exactly one dimension against an existing row, so a delta is attributable:
+#
+#   java21-platform-low  vs java21-virtual-low     -> isolates virtual threads (low footprint)
+#   java21-platform-high vs java21-virtual-high    -> isolates virtual threads (high footprint)
+#   java25-virtual-amd64-low vs java25-virtual-arm-low -> isolates ARM emulation cost
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.extra.yml up -d orchestrator java21-platform-low
+#
+# Anchors are per-file in Compose, so these blocks are spelled out in full.
+
+x-extra-service: &extra-service
+  networks: [matrix-net]
+  volumes:
+    - ./apps/insurance-j21.jar:/app.jar:ro
+  command: sh -c "java $$JAVA_OPTS -jar /app.jar"
+  restart: unless-stopped
+
+x-extra-env: &extra-env
+  SERVER_PORT: "8080"
+  DB_PATH: /tmp/insurance.db
+  SPRING_PROFILES_ACTIVE: benchmark
+
+services:
+  orchestrator:
+    environment:
+      - EXTRA_MATRIX_TARGETS=java21-platform-low:8091,java21-platform-high:8092,java25-virtual-amd64-low:8093
+
+  java21-platform-low:
+    <<: *extra-service
+    image: eclipse-temurin:21-jdk-alpine@sha256:1ff763083f2993d57d0bf374ab10bb3e2cb873af6c13a04458ebbd3e0337dc76
+    container_name: java21-platform-low
+    environment:
+      <<: *extra-env
+      JAVA_OPTS: >-
+        -Xmx192m
+        -XX:StartFlightRecording=name=bench,settings=profile,disk=true,maxsize=256m,dumponexit=true,filename=/tmp/bench.jfr
+        -XX:FlightRecorderOptions=stackdepth=128
+      BENCH_RUNTIME: "21"
+      BENCH_THREADING: "platform"
+      BENCH_FOOTPRINT: "low"
+      BENCH_TARGET: "java21-platform-low"
+      SPRING_THREADS_VIRTUAL_ENABLED: "false"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256m
+    ports:
+      - "8091:8080"
+
+  java21-platform-high:
+    <<: *extra-service
+    image: eclipse-temurin:21-jdk-alpine@sha256:1ff763083f2993d57d0bf374ab10bb3e2cb873af6c13a04458ebbd3e0337dc76
+    container_name: java21-platform-high
+    environment:
+      <<: *extra-env
+      JAVA_OPTS: >-
+        -Xmx3g
+        -XX:StartFlightRecording=name=bench,settings=profile,disk=true,maxsize=256m,dumponexit=true,filename=/tmp/bench.jfr
+        -XX:FlightRecorderOptions=stackdepth=128
+      BENCH_RUNTIME: "21"
+      BENCH_THREADING: "platform"
+      BENCH_FOOTPRINT: "high"
+      BENCH_TARGET: "java21-platform-high"
+      SPRING_THREADS_VIRTUAL_ENABLED: "false"
+    deploy:
+      resources:
+        limits:
+          cpus: "4.0"
+          memory: 4g
+    ports:
+      - "8092:8080"
+
+  java25-virtual-amd64-low:
+    <<: *extra-service
+    image: eclipse-temurin:25-jdk-alpine@sha256:5ecfde8e5ecde5954ea3721155b345ef56c1d579b940c761318ad4c05959a151
+    container_name: java25-virtual-amd64-low
+    platform: linux/amd64
+    volumes:
+      - ./apps/insurance-modern.jar:/app.jar:ro
+    environment:
+      <<: *extra-env
+      JAVA_OPTS: >-
+        -Xmx384m
+        -XX:StartFlightRecording=name=bench,settings=profile,disk=true,maxsize=256m,dumponexit=true,filename=/tmp/bench.jfr
+        -XX:FlightRecorderOptions=stackdepth=128
+      BENCH_RUNTIME: "25"
+      BENCH_THREADING: "virtual"
+      BENCH_FOOTPRINT: "low"
+      BENCH_TARGET: "java25-virtual-amd64-low"
+      SPRING_THREADS_VIRTUAL_ENABLED: "true"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512m
+    ports:
+      - "8093:8080"

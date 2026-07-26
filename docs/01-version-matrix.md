@@ -126,12 +126,49 @@ These defaults reproduce the original brief. They are the *starting* matrix, ful
 **Ports 8081–8090 are fixed** (the orchestrator/dashboard reference them). Everything else in a
 row is a tunable knob.
 
-### 4.2 Suggested JPMC-aligned extensions (optional)
+### 4.2 One-variable extension rows (implemented, opt-in)
 
-To stress the dimensions JPMC actually runs (Java 17+), add comparison rows such as:
-`java17-virtual-*` (platform vs virtual on the *same* runtime), `java21-platform-*`
-(isolate the Loom effect), and a `java25-virtual-amd64-*` (separate the ARM-emulation cost from
-the runtime). These make the benchmark a clean A/B of *one variable at a time*.
+The default rows above vary several knobs at once, so a delta between any two of them is not
+attributable to a single cause. `docker-compose.extra.yml` adds rows that differ from an existing
+row in **exactly one** dimension:
+
+| Service | Differs from | Isolates | Host port |
+| :-- | :-- | :-- | :--: |
+| java21-platform-low | java21-virtual-low | virtual threads (low footprint) | 8091 |
+| java21-platform-high | java21-virtual-high | virtual threads (high footprint) | 8092 |
+| java25-virtual-amd64-low | java25-virtual-arm-low | ARM emulation cost | 8093 |
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.extra.yml \
+  up -d --build orchestrator java21-virtual-low java21-platform-low
+```
+
+The override also sets `EXTRA_MATRIX_TARGETS=name:port,…` on the orchestrator so these rows appear
+in `/api/targets` and are accepted by `POST /api/loadtest`. Without the override the matrix stays at
+the default 10.
+
+> **Note:** `java17-virtual-*` is deliberately absent — virtual threads need Java 21+ (§3), so such
+> a row would be platform threads under a misleading name.
+
+**First recorded A/B (2026-07-26)** — Java 21, 0.5 cpu / 256m / `-Xmx192m`, threading the only
+variable, single run each on one desktop host:
+
+| Load | Metric | virtual | platform |
+| :-- | :-- | --: | --: |
+| REST 10 VUs / 30s | throughput | 43.9 rps | 42.9 rps |
+| | p95 latency | 4.8 ms | 5.4 ms |
+| | peak memory | 188 MB | 245 MB |
+| | peak OS threads | 22 | 31 |
+| | peak context switches | 704/s | 1586/s |
+| SSE 15 held conns / 20s | peak memory | 205 MB | 255 MB |
+| | peak OS threads | 21 | 29 |
+| | `jdk.VirtualThreadPinned` | 0 | 0 |
+
+Virtual threads cost ~55 MB less peak memory, ~9 fewer OS threads, and roughly **half** the
+context-switch rate at equal throughput. The SSE gap is smaller than a naive "one OS thread per
+connection" model predicts because Spring MVC's `SseEmitter` is already async and releases the
+container thread — the platform row still pushed peak memory to the 256 MB cgroup ceiling.
+Treat these as directional: one run per cell, not a statistically controlled benchmark.
 
 ---
 

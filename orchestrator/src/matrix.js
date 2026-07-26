@@ -1,5 +1,5 @@
 /** Default 10-service matrix from docs/01 §4.1 — container_name matches compose service name. */
-export const MATRIX_TARGETS = [
+const DEFAULT_TARGETS = [
   "java8-platform-low",
   "java8-platform-mid",
   "java11-platform-low",
@@ -10,6 +10,38 @@ export const MATRIX_TARGETS = [
   "java21-virtual-high",
   "java25-virtual-arm-low",
   "java25-virtual-arm-high",
+];
+
+/**
+ * Optional one-variable rows from docker-compose.extra.yml (INFRA-05), passed as
+ * `EXTRA_MATRIX_TARGETS=name:port,name:port`. Unknown or malformed entries are ignored.
+ */
+export function parseExtraTargets(spec) {
+  const targets = [];
+  const ports = {};
+  for (const entry of String(spec || "").split(",")) {
+    const trimmed = entry.trim();
+    if (!trimmed) {
+      continue;
+    }
+    const [name, port] = trimmed.split(":");
+    if (!name) {
+      continue;
+    }
+    targets.push(name);
+    const parsed = Number(port);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      ports[name] = parsed;
+    }
+  }
+  return { targets, ports };
+}
+
+const extra = parseExtraTargets(process.env.EXTRA_MATRIX_TARGETS);
+
+export const MATRIX_TARGETS = [
+  ...DEFAULT_TARGETS,
+  ...extra.targets.filter((name) => !DEFAULT_TARGETS.includes(name)),
 ];
 
 const HOST_PORTS = {
@@ -23,6 +55,7 @@ const HOST_PORTS = {
   "java21-virtual-high": 8088,
   "java25-virtual-arm-low": 8089,
   "java25-virtual-arm-high": 8090,
+  ...extra.ports,
 };
 
 export function targetPort(name) {
