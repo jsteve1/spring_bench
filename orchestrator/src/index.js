@@ -12,6 +12,7 @@ import {
   stopTarget,
 } from "./targets.js";
 import { collectMatrixStats } from "./stats.js";
+import { queueLoadTest } from "./loadtest.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -84,22 +85,32 @@ app.get("/api/stats", async (_req, res, next) => {
   }
 });
 
-app.post("/api/loadtest", (req, res) => {
-  const runId = crypto.randomUUID();
-  const record = {
-    runId,
-    startedAt: new Date().toISOString(),
-    request: req.body,
-    status: "queued",
-  };
-  fs.writeFileSync(path.join(RUNS_DIR, `${runId}.json`), JSON.stringify(record, null, 2));
-  res.status(202).json(record);
+app.post("/api/loadtest", (req, res, next) => {
+  try {
+    if (!dockerAvailable()) {
+      res.status(503).json({ error: "Docker socket not available" });
+      return;
+    }
+    const record = queueLoadTest(req.body || {});
+    res.status(202).json(record);
+  } catch (err) {
+    next(err);
+  }
 });
 
 app.get("/api/runs", (_req, res) => {
-  const files = fs.readdirSync(RUNS_DIR).filter((f) => f.endsWith(".json"));
+  const files = fs
+    .readdirSync(RUNS_DIR)
+    .filter((f) => f.endsWith(".json") && !f.includes(path.sep));
   const runs = files
-    .map((file) => JSON.parse(fs.readFileSync(path.join(RUNS_DIR, file), "utf8")))
+    .map((file) => {
+      try {
+        return JSON.parse(fs.readFileSync(path.join(RUNS_DIR, file), "utf8"));
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean)
     .sort((a, b) => (a.startedAt < b.startedAt ? 1 : -1));
   res.json(runs);
 });

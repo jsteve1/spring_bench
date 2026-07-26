@@ -17,6 +17,10 @@ services:
     environment:
       <<: *matrix-env
       JAVA_OPTS: -Xmx192m
+      BENCH_RUNTIME: "8"
+      BENCH_THREADING: "platform"
+      BENCH_FOOTPRINT: "low"
+      BENCH_TARGET: "java8-platform-low"
     deploy:
       resources:
         limits:
@@ -34,6 +38,10 @@ services:
     environment:
       <<: *matrix-env
       JAVA_OPTS: -Xmx768m
+      BENCH_RUNTIME: "8"
+      BENCH_THREADING: "platform"
+      BENCH_FOOTPRINT: "mid"
+      BENCH_TARGET: "java8-platform-mid"
     deploy:
       resources:
         limits:
@@ -51,6 +59,10 @@ services:
     environment:
       <<: *matrix-env
       JAVA_OPTS: -Xmx384m
+      BENCH_RUNTIME: "11"
+      BENCH_THREADING: "platform"
+      BENCH_FOOTPRINT: "low"
+      BENCH_TARGET: "java11-platform-low"
     deploy:
       resources:
         limits:
@@ -68,6 +80,10 @@ services:
     environment:
       <<: *matrix-env
       JAVA_OPTS: -Xmx3g
+      BENCH_RUNTIME: "11"
+      BENCH_THREADING: "platform"
+      BENCH_FOOTPRINT: "high"
+      BENCH_TARGET: "java11-platform-high"
     deploy:
       resources:
         limits:
@@ -85,6 +101,10 @@ services:
     environment:
       <<: *matrix-env
       JAVA_OPTS: -Xmx1500m
+      BENCH_RUNTIME: "17"
+      BENCH_THREADING: "platform"
+      BENCH_FOOTPRINT: "mid"
+      BENCH_TARGET: "java17-platform-mid"
     deploy:
       resources:
         limits:
@@ -102,6 +122,10 @@ services:
     environment:
       <<: *matrix-env
       JAVA_OPTS: -Xmx6g
+      BENCH_RUNTIME: "17"
+      BENCH_THREADING: "platform"
+      BENCH_FOOTPRINT: "high"
+      BENCH_TARGET: "java17-platform-high"
     deploy:
       resources:
         limits:
@@ -119,6 +143,10 @@ services:
     environment:
       <<: *matrix-env
       JAVA_OPTS: -Xmx192m
+      BENCH_RUNTIME: "21"
+      BENCH_THREADING: "virtual"
+      BENCH_FOOTPRINT: "low"
+      BENCH_TARGET: "java21-virtual-low"
       SPRING_THREADS_VIRTUAL_ENABLED: "true"
     deploy:
       resources:
@@ -137,6 +165,10 @@ services:
     environment:
       <<: *matrix-env
       JAVA_OPTS: -Xmx3g
+      BENCH_RUNTIME: "21"
+      BENCH_THREADING: "virtual"
+      BENCH_FOOTPRINT: "high"
+      BENCH_TARGET: "java21-virtual-high"
       SPRING_THREADS_VIRTUAL_ENABLED: "true"
     deploy:
       resources:
@@ -156,6 +188,10 @@ services:
     environment:
       <<: *matrix-env
       JAVA_OPTS: -Xmx384m
+      BENCH_RUNTIME: "25"
+      BENCH_THREADING: "virtual"
+      BENCH_FOOTPRINT: "low"
+      BENCH_TARGET: "java25-virtual-arm-low"
       SPRING_THREADS_VIRTUAL_ENABLED: "true"
     deploy:
       resources:
@@ -175,6 +211,10 @@ services:
     environment:
       <<: *matrix-env
       JAVA_OPTS: -Xmx3g
+      BENCH_RUNTIME: "25"
+      BENCH_THREADING: "virtual"
+      BENCH_FOOTPRINT: "high"
+      BENCH_TARGET: "java25-virtual-arm-high"
       SPRING_THREADS_VIRTUAL_ENABLED: "true"
     deploy:
       resources:
@@ -198,6 +238,13 @@ services:
       - PORT=3000
       - COMPOSE_PROJECT_NAME=spring_bench
       - DASHBOARD_DIST=/app/dashboard
+      - RUNS_DIR=/app/runs
+      - LOADTESTS_PATH=/loadtests
+      - DOCKER_NETWORK=matrix-net
+      - ORCHESTRATOR_CONTAINER=orchestrator
+      - K6_REST_IMAGE=grafana/k6:1.8.0
+      - K6_SSE_IMAGE=bench/k6-sse
+      - STATS_INTERVAL_MS=2000
     ports:
       - "3000:3000"
     restart: unless-stopped
