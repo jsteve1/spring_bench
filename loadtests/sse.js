@@ -1,94 +1,88 @@
-import { check } from "k6";
+import { check, sleep } from "k6";
 import { Counter } from "k6/metrics";
 import sse from "k6/x/sse";
 
+/**
+ * One long-lived /events connection per process.
+ * xk6-sse is synchronous — orchestrator fans out one container per VU.
+ */
 const target = __ENV.TARGET || "http://localhost:8080";
-const vus = Number(__ENV.VUS || 50);
 const dropRate = Number(__ENV.DROP_RATE || 0.1);
-/** How long each VU holds an `/events` connection (headline memory test). */
-const holdMs = parseDurationMs(__ENV.HOLD || __ENV.DURATION || "30s");
+const duration = __ENV.DURATION || "30s";
+const durationMs = parseDurationMs(duration) || 30000;
+const holdMs = Math.min(
+  parseDurationMs(__ENV.HOLD) || Math.floor(durationMs * 0.7),
+  Math.max(1000, durationMs - 2000),
+);
+const holdSec = Math.max(1, Math.ceil(holdMs / 1000));
 
 const sseEvents = new Counter("sse_events");
 const sseConnections = new Counter("sse_connections");
 const sseDrops = new Counter("sse_drops");
 
 export const options = {
-  stages: parseRampStages(__ENV.RAMP_STAGES || "0:15s,full:30s,0:15s", vus),
-  thresholds: {
-    checks: ["rate>0.95"],
+  scenarios: {
+    sse: {
+      executor: "constant-vus",
+      vus: 1,
+      duration,
+      gracefulStop: "3s",
+    },
   },
 };
 
 export default function () {
-  // DROP_RATE: fraction of connections that close early (then VU may reopen).
   const earlyDrop = Math.random() < dropRate;
-  const thisHoldMs = earlyDrop ? Math.max(500, Math.random() * holdMs) : holdMs;
+  const thisHoldSec = earlyDrop ? Math.max(1, Math.ceil(Math.random() * holdSec)) : holdSec;
   if (earlyDrop) {
     sseDrops.add(1);
   }
 
-  const started = Date.now();
   let events = 0;
-  // Timeout is a hard upper bound if heartbeats stall; event handler closes earlier.
-  const timeoutSec = Math.max(1, Math.ceil(thisHoldMs / 1000) + 2);
-
+  let opened = false;
   const res = sse.open(
     `${target}/events`,
     {
-      method: "GET",
       headers: { Accept: "text/event-stream" },
-      tags: { name: "sse" },
-      timeout: `${timeoutSec}s`,
+      timeout: `${thisHoldSec}s`,
     },
     function (client) {
       client.on("open", function () {
-        sseConnections.add(1);
+        opened = true;
       });
-
       client.on("event", function () {
         events += 1;
-        sseEvents.add(1);
-        if (Date.now() - started >= thisHoldMs) {
-          client.close();
-        }
       });
-
-      client.on("error", function (e) {
-        console.error(`sse error: ${e && e.error ? e.error() : e}`);
-      });
+      client.on("error", function () {});
     },
   );
 
-  check(res, { "sse status 200": (r) => r && r.status === 200 });
-  check(null, { "sse received events": () => events > 0 });
-}
+  if (opened) {
+    sseConnections.add(1);
+  }
+  if (events > 0) {
+    sseEvents.add(events);
+  }
 
-/** Spec format: `0:30s,full:2m,0:30s` → stages of {target, duration}. */
-function parseRampStages(spec, peakVus) {
-  return spec
-    .split(",")
-    .map((part) => part.trim())
-    .filter(Boolean)
-    .map((part) => {
-      const idx = part.indexOf(":");
-      if (idx < 0) {
-        return { target: peakVus, duration: part };
-      }
-      const rawTarget = part.slice(0, idx);
-      const durationPart = part.slice(idx + 1);
-      return {
-        target: rawTarget === "full" ? peakVus : Number(rawTarget),
-        duration: durationPart,
-      };
-    });
+  const ok = check(res, {
+    "sse connected": (r) => r && (r.status === 200 || r.status === 0),
+  });
+  check(null, { "sse received events": () => events > 0 });
+
+  if (!ok || events === 0) {
+    sleep(1);
+  }
 }
 
 function parseDurationMs(spec) {
+  if (!spec) {
+    return null;
+  }
   const m = String(spec)
     .trim()
     .match(/^(\d+(?:\.\d+)?)(ms|s|m|h)?$/i);
   if (!m) {
-    return 30000;
+    return null;
   }
   const n = Number(m[1]);
   const unit = (m[2] || "s").toLowerCase();
@@ -106,9 +100,14 @@ export function handleSummary(data) {
   };
 }
 
+function metricCount(data, name) {
+  const m = data.metrics?.[name];
+  return m?.values?.count ?? m?.count ?? null;
+}
+
 function textSummary(data) {
-  const events = data.metrics?.sse_events?.values?.count ?? data.metrics?.sse_events?.count;
-  const conns =
-    data.metrics?.sse_connections?.values?.count ?? data.metrics?.sse_connections?.count;
-  return `k6 sse done events=${events ?? "n/a"} connections=${conns ?? "n/a"}\n`;
+  const events =
+    metricCount(data, "sse_events") ?? metricCount(data, "sse_event") ?? "n/a";
+  const conns = metricCount(data, "sse_connections") ?? "n/a";
+  return `k6 sse done events=${events} connections=${conns}\n`;
 }

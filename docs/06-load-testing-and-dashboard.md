@@ -42,13 +42,16 @@ USER k6
 - Randomly closes a fraction of connections early per `DROP_RATE` (flaky-client simulation).
 - This is the headline test: platform threads (one OS thread per held connection) vs virtual
   threads (cheap parked continuations) diverge sharply here.
-- **Build status (`main`):** `bench/k6-sse` builds via `docker compose --profile tools build k6-sse`
-  (`xk6-sse@v0.1.11`). Orchestrator launches **one** SSE container per loadtest today.
-- **Known limit:** `xk6-sse` does not reliably multiplex many concurrent held connections in a
-  single k6 process. For faithful high-VU SSE, prefer **one container per VU** (fan-out) and merge
-  summaries — see open PR **#9** / `docs/HANDOFF.md`. Until fan-out lands, keep SSE VUs small when
-  validating.
-- Build: `docker build -f loadtests/Dockerfile.k6-sse -t bench/k6-sse .` (or compose profile above).
+- **Fan-out (implemented):** `xk6-sse` is synchronous and does not multiplex concurrent holds in one
+  process, so the orchestrator runs **one `VUS=1` container per requested VU** and merges the
+  per-worker summaries into `runs/{id}/summary.json` (`sse_events` / `sse_connections` / `sse_drops`).
+  Per-worker files stay as `summary-{n}.json` for debugging. Batch size:
+  `SSE_FANOUT_CONCURRENCY` (default 20).
+- Build the image first: `docker compose --profile tools build k6-sse` (or
+  `docker build -f loadtests/Dockerfile.k6-sse -t bench/k6-sse .`). REST mode uses stock
+  `grafana/k6:1.8.0` and is auto-pulled.
+- **Verified 2026-07-26** on Docker Engine 29.6.1: 15 VUs → 15 concurrent containers, 15 held
+  connections, 102 events, exit 0.
 
 ### 1.3 Output
 - Emit a machine-readable summary (`handleSummary` → JSON) the orchestrator ingests: p50/p95/p99

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+﻿import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -228,7 +228,7 @@ export default function App() {
               onChange={(e) => setLoadForm({ ...loadForm, mode: e.target.value })}
             >
               <option value="rest">REST</option>
-              <option value="sse">SSE</option>
+              <option value="sse">SSE (/events via bench/k6-sse)</option>
             </select>
           </label>
           <label>
@@ -284,7 +284,7 @@ export default function App() {
         </form>
         {lastRun && (
           <p className="note">
-            Queued run <code>{lastRun.runId}</code> — status will update in history below.
+            Queued run <code>{lastRun.runId}</code> ΓÇö status will update in history below.
           </p>
         )}
       </section>
@@ -364,7 +364,7 @@ export default function App() {
       </section>
 
       <section>
-        <h2>Lock wait rate — blocked (/s)</h2>
+        <h2>Lock wait rate ΓÇö blocked (/s)</h2>
         <p className="compare-sub">
           Live delta of cumulative <code>ThreadMXBean</code> blocked counts (
           <code>bench.threads.blocked.total</code>).
@@ -373,7 +373,7 @@ export default function App() {
       </section>
 
       <section>
-        <h2>Lock wait rate — waited (/s)</h2>
+        <h2>Lock wait rate ΓÇö waited (/s)</h2>
         <Line data={series("waitedRate")} options={chartOpts} />
       </section>
 
@@ -387,3 +387,4 @@ export default function App() {
     </main>
   );
 }
+

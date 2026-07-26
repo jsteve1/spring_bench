@@ -1,4 +1,4 @@
-# Custom k6 with xk6-sse for faithful long-lived /events load (LOAD-02).
+﻿# Custom k6 with xk6-sse for faithful long-lived /events load (LOAD-02).
 # Build: docker build -f loadtests/Dockerfile.k6-sse -t bench/k6-sse .
 # Or:    docker compose --profile tools build k6-sse
 #

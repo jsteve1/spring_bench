@@ -7,7 +7,15 @@ $Mvn = if (Get-Command mvn -ErrorAction SilentlyContinue) { "mvn" }
        else { throw "Maven not found. Install Maven 3.9+ or run from a repo with .tools/apache-maven." }
 
 Write-Host "Building insurance service modules..."
+# Maven logs warnings to stderr, which PowerShell treats as terminating under
+# ErrorActionPreference=Stop; gate on the process exit code instead.
+$ErrorActionPreference = "Continue"
 & $Mvn -q clean package
+$MvnExit = $LASTEXITCODE
+$ErrorActionPreference = "Stop"
+if ($MvnExit -ne 0) {
+    throw "Maven build failed (exit code $MvnExit)"
+}
 
 $AppsDir = Join-Path (Split-Path -Parent $Root) "apps"
 New-Item -ItemType Directory -Force -Path $AppsDir | Out-Null
