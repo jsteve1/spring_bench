@@ -32,6 +32,12 @@ management:
     health:
       probes:
         enabled: true
+  metrics:
+    tags:
+      runtime: ${BENCH_RUNTIME:unknown}
+      threading: ${BENCH_THREADING:platform}
+      footprint: ${BENCH_FOOTPRINT:default}
+      target: ${BENCH_TARGET:local}
 
 springdoc:
   api-docs:

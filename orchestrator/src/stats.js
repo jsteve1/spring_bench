@@ -70,6 +70,63 @@ async function withTimeout(promise, ms) {
   }
 }
 
+async function metricValue(name, metricPath) {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), STATS_TIMEOUT_MS);
+    const res = await fetch(`http://${name}:8080/actuator/metrics/${metricPath}`, {
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    if (!res.ok) {
+      return null;
+    }
+    const body = await res.json();
+    const measurement = body.measurements?.[0];
+    return measurement?.value ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchJvmMetrics(name) {
+  const [threads, heapUsed] = await Promise.all([
+    metricValue(name, "jvm.threads.live"),
+    metricValue(name, "jvm.memory.used?tag=area%3Aheap"),
+  ]);
+
+  let gcCount = null;
+  let gcTotalMs = null;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), STATS_TIMEOUT_MS);
+    const res = await fetch(`http://${name}:8080/actuator/metrics/jvm.gc.pause`, {
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    if (res.ok) {
+      const body = await res.json();
+      for (const m of body.measurements || []) {
+        if (m.statistic === "COUNT") {
+          gcCount = m.value;
+        }
+        if (m.statistic === "TOTAL_TIME") {
+          gcTotalMs = round((m.value || 0) * 1000, 2);
+        }
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  return {
+    threads: threads != null ? round(threads, 0) : null,
+    heapUsedMb: heapUsed != null ? round(heapUsed / (1024 * 1024), 1) : null,
+    gcPauseCount: gcCount,
+    gcPauseTotalMs: gcTotalMs,
+  };
+}
+
 async function containerStatsSnapshot(name) {
   const info = await inspectContainer(name);
   if (!info) {
@@ -108,9 +165,10 @@ async function containerStatsSnapshot(name) {
   }
 
   const container = getDocker().getContainer(name);
-  const [raw, health] = await Promise.all([
+  const [raw, health, jvm] = await Promise.all([
     withTimeout(container.stats({ stream: false }), STATS_TIMEOUT_MS),
     fetchTargetHealth(name),
+    fetchJvmMetrics(name),
   ]);
 
   const mem = memoryMb(raw);
@@ -125,7 +183,10 @@ async function containerStatsSnapshot(name) {
     netRxMb: net.netRxMb,
     netTxMb: net.netTxMb,
     pids: raw.pids_stats?.current ?? 0,
-    threads: health?.activeThreadCount ?? null,
+    threads: jvm.threads ?? health?.activeThreadCount ?? null,
+    heapUsedMb: jvm.heapUsedMb,
+    gcPauseCount: jvm.gcPauseCount,
+    gcPauseTotalMs: jvm.gcPauseTotalMs,
     maxHeapMb: health?.maxHeapMb ?? null,
     javaVersion: health?.javaVersion ?? null,
     virtualThreadsEnabled: health?.virtualThreadsEnabled ?? null,

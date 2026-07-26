@@ -96,6 +96,81 @@ header h1 {
   color: #fbbf24;
 }
 
+.load-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.75rem;
+  background: #1e293b;
+  padding: 1rem;
+  border-radius: 8px;
+}
+
+.load-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+}
+
+.load-form input,
+.load-form select {
+  background: #0f172a;
+  color: #e2e8f0;
+  border: 1px solid #475569;
+  border-radius: 6px;
+  padding: 0.4rem 0.5rem;
+}
+
+.load-form button {
+  align-self: end;
+  background: #1d4ed8;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.55rem 0.85rem;
+  cursor: pointer;
+}
+
+.load-form button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.runs {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.runs li {
+  background: #1e293b;
+  border-radius: 8px;
+  padding: 0.65rem 0.9rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.badge-completed,
+.badge-running {
+  background: #14532d;
+  color: #bbf7d0;
+}
+
+.badge-failed,
+.badge-queued {
+  background: #7f1d1d;
+  color: #fecaca;
+}
+
+.error-inline {
+  color: #fca5a5;
+  font-size: 0.85rem;
+}
+
 section {
   margin-top: 2rem;
 }
