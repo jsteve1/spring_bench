@@ -182,7 +182,9 @@ services:
 
   java25-virtual-arm-low:
     <<: *matrix-service
-    image: eclipse-temurin:25-jdk-alpine@sha256:5ecfde8e5ecde5954ea3721155b345ef56c1d579b940c761318ad4c05959a151
+    # Pin the arm64 platform manifest. The multi-arch index digest resolves to
+    # amd64 locally and Docker errors with "cannot overwrite digest" for arm64.
+    image: eclipse-temurin:25-jdk-alpine@sha256:a73f79083d039f5413c6eb0918ec5a714390b8f7b40d64a2ff4f5a902246cf44
     platform: linux/arm64/v8
     container_name: java25-virtual-arm-low
     environment:
@@ -205,7 +207,8 @@ services:
 
   java25-virtual-arm-high:
     <<: *matrix-service
-    image: eclipse-temurin:25-jdk-alpine@sha256:5ecfde8e5ecde5954ea3721155b345ef56c1d579b940c761318ad4c05959a151
+    # Same arm64 platform digest as java25-virtual-arm-low (see note there).
+    image: eclipse-temurin:25-jdk-alpine@sha256:a73f79083d039f5413c6eb0918ec5a714390b8f7b40d64a2ff4f5a902246cf44
     platform: linux/arm64/v8
     container_name: java25-virtual-arm-high
     environment:

@@ -1,7 +1,7 @@
 # 12 — Benchmark Report (2026-07-26)
 
-First full **paced** sweep (§1–5, 23 runs), then a **full amd64 capacity** sweep (§6, 55 measured
-runs across 11 targets). Produced by `scripts/run-benchmarks.ps1` /
+First full **paced** sweep (§1–5, 23 runs), then a **full-matrix capacity** sweep (§6, 65 measured
+runs across all 13 targets including ARM under QEMU). Produced by `scripts/run-benchmarks.ps1` /
 `scripts/analyze-benchmarks.mjs`.
 
 > Read §5 before quoting anything from here. Two of the four headline numbers are solid; one is
@@ -179,21 +179,25 @@ difference: a virtual thread unmounting is a continuation yield, which JFR does 
   "one OS thread per connection" penalty this design was built to expose is largely absent. A
   blocking-IO endpoint would show a much sharper split.
 - **12 SSE connections is small.** The interesting Loom territory is hundreds to thousands.
-- **ARM rows** (`java25-virtual-arm-*`) were attempted in the capacity sweep but `docker compose up`
-  failed on this host; only `java25-virtual-amd64-low` is measured for Java 25.
+- **ARM throughput is under QEMU**, not native silicon. Use it for capability / emulation-cost
+  reads (`java25-virtual-amd64-low` vs `java25-virtual-arm-low`), not absolute ARM performance.
 
 ---
 
 ## 6. Full-matrix capacity sweep (2026-07-26)
 
-**All amd64 matrix rows** (compose + `docker-compose.extra.yml`), one target at a time,
+**All 13 matrix rows** (compose + `docker-compose.extra.yml`), one target at a time,
 `THINK_TIME=0`, **50 VUs**, 30s REST (`0:5s,full:20s,0:5s`), SSE 12 connections / 20s,
-REST medians of 3 + SSE medians of 2, warmup discarded. ~70 minutes wall clock.
-ARM rows skipped (compose start failed).
+REST medians of 3 + SSE medians of 2, warmup discarded. Amd64 portion ~70 minutes; ARM under
+QEMU added ~40+ minutes (startup alone ~4–5 minutes per container).
 
 ```powershell
 .\scripts\run-benchmarks.ps1 -Vus 50 -ThinkTime 0 -Reps 3 -SseReps 2
 ```
+
+ARM rows initially failed because compose pinned the multi-arch index digest, which Docker had
+already resolved to amd64 (`cannot overwrite digest`). They were re-run after pinning the
+**arm64 platform digest** (`sha256:a73f79…`) and raising the health wait to 900s.
 
 ### 6.1 REST (capacity, medians)
 
@@ -210,9 +214,11 @@ ARM rows skipped (compose start failed).
 | java21-virtual-low | 3 | 21.0.11 | true | 421.5 | 10.7 | 170.43 | 0 | 211.8 | **22** | 51.1 | 2514.1 |
 | java21-virtual-high | 3 | 21.0.11 | true | **1923** | 1.32 | 37.81 | 0 | 343.9 | **23** | 234.8 | 10155.4 |
 | java25-virtual-amd64-low | 3 | 25.0.3 | true | 1222.8 | 14.36 | 44.98 | 0 | 326.8 | **20** | 101.7 | 3693 |
+| java25-virtual-arm-low ⚠ | 3 | 25.0.3 | true | 40.6 | 528.8 | 1195.64 | 0 | 338 | 21 | 101.8 | 10027.8 |
+| java25-virtual-arm-high ⚠ | 3 | 25.0.3 | true | 53.4 | 25.86 | 1420.68 | 0 | 563.3 | 24 | 404.4 | 32826.7 |
 
-Zero errors. Footprint still dominates absolute RPS (low vs high); within a footprint class,
-newer JDKs and virtual threads pull ahead.
+Zero errors. ⚠ = QEMU `linux/arm64/v8` on amd64 host — not native ARM throughput. Footprint still
+dominates absolute RPS on amd64; within a footprint class, newer JDKs and virtual threads pull ahead.
 
 ### 6.2 SSE (12 held connections, medians of 2)
 
@@ -229,37 +235,35 @@ newer JDKs and virtual threads pull ahead.
 | java21-virtual-low | 2 | 21.0.11 | true | 12 | 79 | 171.1 | **21** | 30.8 | 3326.1 |
 | java21-virtual-high | 2 | 21.0.11 | true | 12 | 78.5 | 365.8 | **22** | 48 | 5321.8 |
 | java25-virtual-amd64-low | 2 | 25.0.3 | true | 12 | 77.5 | 334.4 | **20** | 38.7 | 354.1 |
+| java25-virtual-arm-low ⚠ | 2 | 25.0.3 | true | 12 | 69 | 318.1 | 21 | 96.3 | 94409.5 |
+| java25-virtual-arm-high ⚠ | 2 | 25.0.3 | true | 12 | 78 | 616.5 | 23 | 215.2 | 2251993.4 ⚠§5.2 |
 
-All held 12 connections. Virtual rows stay ~20–23 OS threads; platform rows ~70–73.
+All held 12 connections. Virtual rows stay ~20–24 OS threads; platform rows ~70–74. ARM ctx/s peaks
+are high-variance under emulation — treat like §5.2, not as a Loom finding.
 
 ### 6.3 One-variable reads (from this sweep)
 
 | Comparison | What changes | Result |
 | :-- | :-- | :-- |
-| `java21-platform-low` vs `java21-virtual-low` | threading only | **421 vs 273 rps**; threads **22 vs 74**; p95 **170 vs 289** |
+| `java21-platform-low` vs `java21-virtual-low` | threading only | **422 vs 273 rps**; threads **22 vs 74**; p95 **170 vs 289** |
 | `java21-platform-high` vs `java21-virtual-high` | threading only | **1923 vs 1854 rps** (smaller gap when CPU-rich); threads **23 vs 72** |
+| `java25-virtual-amd64-low` vs `java25-virtual-arm-low` | arch (same JDK/shell/footprint intent) | **1223 vs 41 rps** under QEMU — emulation cost, not native ARM |
 | `java21-virtual-low` vs `java25-virtual-amd64-low` | JDK 21→25 (cgroup also differs: 0.5/256m vs 1.0/512m) | 422 vs 1223 rps — **confounded by footprint** |
 | low vs high within a JDK | cgroup / heap | Large RPS jumps (e.g. Java 11: 432 → 1429) |
 
-An earlier Java 21-only capacity smoke (§6 in prior revisions) is superseded by these medians.
-
-### 6.4 Skipped
-
-| Target | Reason |
-| :-- | :-- |
-| `java25-virtual-arm-low` | `docker compose up` exit 1 on this host |
-| `java25-virtual-arm-high` | same |
+No targets skipped in the final manifest. An earlier Java 21-only capacity smoke is superseded by
+these medians for matrix quotes.
 
 ---
 
 ## 7. Next experiments, in value order
 
-1. ~~Full amd64 capacity matrix~~ — done (§6).
+1. ~~Full-matrix capacity (all 13 rows, REST+SSE)~~ — done (§6).
 2. **Scale SSE to 200–1000 connections** on the Java 21 pair (RSS / thread divergence).
-3. Fix ARM compose start (QEMU/binfmt or image pull) and measure `java25-virtual-arm-*`.
+3. **Capacity at 100–200 VUs** on the one-variable Java 21 pair (and optionally `-high`).
 4. **5+ reps on context-switch**, or windowed mean, so paced-sweep §5.2 resolves.
 5. **Parse JFR properly** to replace line-count proxies.
-6. Capacity at 100–200 VUs on the one-variable Java 21 pair.
+6. Optional: Cloudflare Access on the public tunnel.
 
 ---
 

@@ -58,6 +58,20 @@ $Compose = @("-f", "docker-compose.yml", "-f", "docker-compose.extra.yml")
 $manifest = [System.Collections.Generic.List[object]]::new()
 $manifestPath = Join-Path $PSScriptRoot "bench-manifest.json"
 
+# Resume-safe: keep prior completed/skipped entries when appending new targets.
+if (Test-Path $manifestPath) {
+    try {
+        $existing = Get-Content $manifestPath -Raw -Encoding utf8
+        if ($existing) {
+            $parsed = $existing.TrimStart([char]0xFEFF) | ConvertFrom-Json
+            foreach ($e in @($parsed)) { if ($null -ne $e) { $manifest.Add($e) } }
+            Write-Host "Loaded $($manifest.Count) existing manifest entries from $manifestPath"
+        }
+    } catch {
+        Write-Warning "Could not load existing manifest; starting fresh. $_"
+    }
+}
+
 # The orchestrator requires Basic auth when ORCH_BASIC_* are set (see basicAuth.js).
 $Auth = @{}
 $envFile = Join-Path $Root ".env"
@@ -94,7 +108,8 @@ function Get-HostPort($name) {
     ($t | Where-Object { $_.name -eq $name }).port
 }
 
-function Wait-Healthy($name, $timeoutSec = 300) {
+# ARM/QEMU rows routinely need 4–6+ minutes to reach /health.
+function Wait-Healthy($name, $timeoutSec = 900) {
     $port = Get-HostPort $name
     $deadline = (Get-Date).AddSeconds($timeoutSec)
     while ((Get-Date) -lt $deadline) {
