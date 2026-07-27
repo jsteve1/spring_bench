@@ -11,20 +11,37 @@
 param(
     [string[]]$Targets = @(
         "java8-platform-low",
+        "java8-platform-mid",
         "java11-platform-low",
+        "java11-platform-high",
         "java17-platform-mid",
+        "java17-platform-high",
         "java21-platform-low",
-        "java21-virtual-low"
+        "java21-platform-high",
+        "java21-virtual-low",
+        "java21-virtual-high",
+        "java25-virtual-amd64-low",
+        "java25-virtual-arm-low",
+        "java25-virtual-arm-high"
     ),
     [string[]]$SseTargets = @(
         "java8-platform-low",
+        "java8-platform-mid",
         "java11-platform-low",
+        "java11-platform-high",
+        "java17-platform-mid",
+        "java17-platform-high",
         "java21-platform-low",
-        "java21-virtual-low"
+        "java21-platform-high",
+        "java21-virtual-low",
+        "java21-virtual-high",
+        "java25-virtual-amd64-low",
+        "java25-virtual-arm-low",
+        "java25-virtual-arm-high"
     ),
     [int]$Reps = 3,
     [int]$SseReps = 2,
-    [int]$Vus = 10,
+    [int]$Vus = 50,
     [string]$Duration = "30s",
     [string]$RampStages = "0:5s,full:20s,0:5s",
     # 0 = capacity mode (no per-iteration sleep). First sweep used 0.2 and flatlined ~42 rps.
@@ -77,7 +94,7 @@ function Get-HostPort($name) {
     ($t | Where-Object { $_.name -eq $name }).port
 }
 
-function Wait-Healthy($name, $timeoutSec = 180) {
+function Wait-Healthy($name, $timeoutSec = 300) {
     $port = Get-HostPort $name
     $deadline = (Get-Date).AddSeconds($timeoutSec)
     while ((Get-Date) -lt $deadline) {
@@ -117,40 +134,52 @@ $all = $Targets + ($SseTargets | Where-Object { $Targets -notcontains $_ }) | Se
 
 foreach ($target in $all) {
     Write-Host "=== $target ==="
-    Invoke-Compose @("up", "-d", $target)
-    $health = Wait-Healthy $target
-    Write-Host ("    java=$($health.javaVersion) boot=$($health.springBoot) virtual=$($health.virtualThreadsEnabled) maxHeap=$($health.maxHeapMb)MB")
+    try {
+        Invoke-Compose @("up", "-d", $target)
+        $health = Wait-Healthy $target
+        Write-Host ("    java=$($health.javaVersion) boot=$($health.springBoot) virtual=$($health.virtualThreadsEnabled) maxHeap=$($health.maxHeapMb)MB")
 
-    # Warmup: discarded. Lets the JIT compile hot paths and warms the page cache.
-    if ($Targets -contains $target) {
-        Invoke-Run $target "rest" "warmup" | Out-Null
-    }
+        # Warmup: discarded. Lets the JIT compile hot paths and warms the page cache.
+        if ($Targets -contains $target) {
+            Invoke-Run $target "rest" "warmup" | Out-Null
+        }
 
-    if ($Targets -contains $target) {
-        for ($i = 1; $i -le $Reps; $i++) {
-            $r = Invoke-Run $target "rest" "rep$i"
-            $manifest.Add(@{
-                target = $target; mode = "rest"; rep = $i; runId = $r.runId
-                status = $r.status; health = $health
-            })
-            Save-Manifest
+        if ($Targets -contains $target) {
+            for ($i = 1; $i -le $Reps; $i++) {
+                $r = Invoke-Run $target "rest" "rep$i"
+                $manifest.Add(@{
+                    target = $target; mode = "rest"; rep = $i; runId = $r.runId
+                    status = $r.status; health = $health
+                })
+                Save-Manifest
+            }
+        }
+
+        if ($SseTargets -contains $target) {
+            for ($i = 1; $i -le $SseReps; $i++) {
+                $r = Invoke-Run $target "sse" "rep$i"
+                $manifest.Add(@{
+                    target = $target; mode = "sse"; rep = $i; runId = $r.runId
+                    status = $r.status; health = $health
+                })
+                Save-Manifest
+            }
+        }
+    } catch {
+        Write-Warning "Skipping $target : $_"
+        $manifest.Add(@{
+            target = $target; mode = "skip"; rep = 0; runId = $null
+            status = "skipped"; error = "$_"; health = $null
+        })
+        Save-Manifest
+    } finally {
+        try {
+            Invoke-Compose @("stop", $target)
+            Write-Host "    stopped`n"
+        } catch {
+            Write-Warning "stop $target failed: $_"
         }
     }
-
-    if ($SseTargets -contains $target) {
-        for ($i = 1; $i -le $SseReps; $i++) {
-            $r = Invoke-Run $target "sse" "rep$i"
-            $manifest.Add(@{
-                target = $target; mode = "sse"; rep = $i; runId = $r.runId
-                status = $r.status; health = $health
-            })
-            Save-Manifest
-        }
-    }
-
-    # Stop so the next target starts from a clean, uncontended host.
-    Invoke-Compose @("stop", $target)
-    Write-Host "    stopped`n"
 }
 
 Write-Host "Manifest: $manifestPath ($($manifest.Count) measured runs)"

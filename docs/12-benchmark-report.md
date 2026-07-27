@@ -1,7 +1,8 @@
 # 12 — Benchmark Report (2026-07-26)
 
-First full sweep of the matrix. **23 paced runs** (§1–5), then a **capacity follow-up** on the
-Java 21 pair (§6). Produced by `scripts/run-benchmarks.ps1` and `scripts/analyze-benchmarks.mjs`.
+First full **paced** sweep (§1–5, 23 runs), then a **full amd64 capacity** sweep (§6, 55 measured
+runs across 11 targets). Produced by `scripts/run-benchmarks.ps1` /
+`scripts/analyze-benchmarks.mjs`.
 
 > Read §5 before quoting anything from here. Two of the four headline numbers are solid; one is
 > high-variance noise, and one earlier claim in `docs/01 §4.2` turned out to be wrong.
@@ -178,49 +179,87 @@ difference: a virtual thread unmounting is a continuation yield, which JFR does 
   "one OS thread per connection" penalty this design was built to expose is largely absent. A
   blocking-IO endpoint would show a much sharper split.
 - **12 SSE connections is small.** The interesting Loom territory is hundreds to thousands.
-- **`java25`, all `-high` rows, and the ARM/amd64 pair are unmeasured.**
+- **ARM rows** (`java25-virtual-arm-*`) were attempted in the capacity sweep but `docker compose up`
+  failed on this host; only `java25-virtual-amd64-low` is measured for Java 25.
 
 ---
 
-## 6. Capacity follow-up (2026-07-26, Java 21 pair)
+## 6. Full-matrix capacity sweep (2026-07-26)
 
-Same host and one-variable pair as §4.3, but **`THINK_TIME=0`**, **50 VUs**, 30s,
-ramp `0:5s,full:20s,0:5s`, **medians of 3** (warmup discarded). Script:
+**All amd64 matrix rows** (compose + `docker-compose.extra.yml`), one target at a time,
+`THINK_TIME=0`, **50 VUs**, 30s REST (`0:5s,full:20s,0:5s`), SSE 12 connections / 20s,
+REST medians of 3 + SSE medians of 2, warmup discarded. ~70 minutes wall clock.
+ARM rows skipped (compose start failed).
 
-`.\scripts\run-benchmarks.ps1 -Vus 50 -ThinkTime 0 -Targets java21-virtual-low,java21-platform-low -SseTargets @() -Reps 3`
+```powershell
+.\scripts\run-benchmarks.ps1 -Vus 50 -ThinkTime 0 -Reps 3 -SseReps 2
+```
 
-| Target | rps | p50 | p95 | err | memMbPeak | threadsPeak | cpuPctPeak |
-| :-- | --: | --: | --: | --: | --: | --: | --: |
-| `java21-virtual-low` | **481.6** | 10.0 | **123.6** | 0 | 180.4 | **22** | 51.5 |
-| `java21-platform-low` | **318.0** | 2.1 | **291.1** | 0 | 183.3 | **84** | 51.9 |
+### 6.1 REST (capacity, medians)
 
-### What this shows
+| Target | reps | java | virt | rps | p50 | p95 | err | memMb | threads | CPU% | ctx/s |
+| :-- | --: | :-- | :--: | --: | --: | --: | --: | --: | --: | --: | --: |
+| java8-platform-low | 3 | 1.8.0_492 | false | 114.9 | 14.87 | 692.5 | 0 | 172.9 | 70 | 52.3 | 4813.5 |
+| java8-platform-mid | 3 | 1.8.0_492 | false | 752.3 | 3.52 | 107.13 | 0 | 286.6 | 71 | 207 | 11303.5 |
+| java11-platform-low | 3 | 11.0.31 | false | 431.9 | 2.6 | 185.87 | 0 | 276.9 | 73 | 104.9 | 2710.1 |
+| java11-platform-high | 3 | 11.0.31 | false | 1428.8 | 1.96 | 51.74 | 0 | 375.7 | 72 | 266.5 | 8569.3 |
+| java17-platform-mid | 3 | 17.0.19 | false | 1433.1 | 1.5 | 60.6 | 0 | 363.4 | 72 | 210.6 | 7192.2 |
+| java17-platform-high | 3 | 17.0.19 | false | 1790.6 | 1.56 | 44.89 | 0 | 419.9 | 71 | 300.2 | 9245.7 |
+| java21-platform-low | 3 | 21.0.11 | false | 273.2 | 3.95 | 289.48 | 0 | 242.4 | 74 | 52.4 | 2352.6 |
+| java21-platform-high | 3 | 21.0.11 | false | 1854.3 | 1.38 | 39.37 | 0 | 385.8 | 72 | 270 | 9718.9 |
+| java21-virtual-low | 3 | 21.0.11 | true | 421.5 | 10.7 | 170.43 | 0 | 211.8 | **22** | 51.1 | 2514.1 |
+| java21-virtual-high | 3 | 21.0.11 | true | **1923** | 1.32 | 37.81 | 0 | 343.9 | **23** | 234.8 | 10155.4 |
+| java25-virtual-amd64-low | 3 | 25.0.3 | true | 1222.8 | 14.36 | 44.98 | 0 | 326.8 | **20** | 101.7 | 3693 |
 
-- **Throughput finally separates.** Virtual threads deliver ~**1.5×** RPS versus platform on the
-  same Boot 4.1 / Java 21 / low footprint cell. The paced sweep (§3) could not show this.
-- **Tail latency favors virtual** under this load (p95 124 ms vs 291 ms) even though p50 is higher —
-  platform pays more in the tail when saturated.
-- **OS thread count remains the clean Loom signal:** 22 vs 84 at nearly identical RSS and CPU %.
-- Memory still does not favor virtual at this scale (~180 MB both); that claim stays deferred to
-  larger SSE holds.
+Zero errors. Footprint still dominates absolute RPS (low vs high); within a footprint class,
+newer JDKs and virtual threads pull ahead.
 
-An earlier single-shot smoke (~95 vs ~29 rps) was directionally right but understated absolute
-throughput; use the medians above for quotes.
+### 6.2 SSE (12 held connections, medians of 2)
+
+| Target | reps | java | virt | conns | events | memMb | threads | CPU% | ctx/s |
+| :-- | --: | :-- | :--: | --: | --: | --: | --: | --: | --: |
+| java8-platform-low | 2 | 1.8.0_492 | false | 12 | 73.5 | 140.8 | 71 | 44.1 | 18443.3 |
+| java8-platform-mid | 2 | 1.8.0_492 | false | 12 | 79.5 | 372.7 | 70 | 20 | 894.9 |
+| java11-platform-low | 2 | 11.0.31 | false | 12 | 78.5 | 300.4 | 72 | 11 | 588.4 |
+| java11-platform-high | 2 | 11.0.31 | false | 12 | 82 | 406.7 | 71 | 14.5 | 541.7 |
+| java17-platform-mid | 2 | 17.0.19 | false | 12 | 79 | 388.5 | 71 | 28.3 | 1029.6 |
+| java17-platform-high | 2 | 17.0.19 | false | 12 | 81.5 | 434.5 | 70 | 38 | 1029.2 |
+| java21-platform-low | 2 | 21.0.11 | false | 12 | 77.5 | 177.5 | 73 | 32.8 | 3529.3 |
+| java21-platform-high | 2 | 21.0.11 | false | 12 | 83 | 412.7 | 71 | 31.7 | 455.2 |
+| java21-virtual-low | 2 | 21.0.11 | true | 12 | 79 | 171.1 | **21** | 30.8 | 3326.1 |
+| java21-virtual-high | 2 | 21.0.11 | true | 12 | 78.5 | 365.8 | **22** | 48 | 5321.8 |
+| java25-virtual-amd64-low | 2 | 25.0.3 | true | 12 | 77.5 | 334.4 | **20** | 38.7 | 354.1 |
+
+All held 12 connections. Virtual rows stay ~20–23 OS threads; platform rows ~70–73.
+
+### 6.3 One-variable reads (from this sweep)
+
+| Comparison | What changes | Result |
+| :-- | :-- | :-- |
+| `java21-platform-low` vs `java21-virtual-low` | threading only | **421 vs 273 rps**; threads **22 vs 74**; p95 **170 vs 289** |
+| `java21-platform-high` vs `java21-virtual-high` | threading only | **1923 vs 1854 rps** (smaller gap when CPU-rich); threads **23 vs 72** |
+| `java21-virtual-low` vs `java25-virtual-amd64-low` | JDK 21→25 (cgroup also differs: 0.5/256m vs 1.0/512m) | 422 vs 1223 rps — **confounded by footprint** |
+| low vs high within a JDK | cgroup / heap | Large RPS jumps (e.g. Java 11: 432 → 1429) |
+
+An earlier Java 21-only capacity smoke (§6 in prior revisions) is superseded by these medians.
+
+### 6.4 Skipped
+
+| Target | Reason |
+| :-- | :-- |
+| `java25-virtual-arm-low` | `docker compose up` exit 1 on this host |
+| `java25-virtual-arm-high` | same |
 
 ---
 
 ## 7. Next experiments, in value order
 
-1. ~~Capacity REST on the Java 21 pair~~ — done (§6). Optionally push VUs to 100–200 and/or include
-   `-high` footprints.
-2. **Scale SSE to 200–1000 connections.** This is where virtual threads should separate decisively
-   on RSS / OS threads, and where §4.3's memory result may well invert.
-3. **5+ reps on the context-switch metric**, or switch from peak to windowed mean, so §5.2 resolves.
-4. **Parse JFR properly** (`jfr summary --json` or the JMC parser) to replace line-count proxies.
-5. **Measure the remaining rows:** `java25` pair for ARM emulation cost, `-high` footprints for
-   scaling behaviour.
-6. **Same-shell runtime isolation:** add `java8`/`java11` rows on identical cgroups to separate JDK
-   from footprint, since §5.1 currently blocks that read.
+1. ~~Full amd64 capacity matrix~~ — done (§6).
+2. **Scale SSE to 200–1000 connections** on the Java 21 pair (RSS / thread divergence).
+3. Fix ARM compose start (QEMU/binfmt or image pull) and measure `java25-virtual-arm-*`.
+4. **5+ reps on context-switch**, or windowed mean, so paced-sweep §5.2 resolves.
+5. **Parse JFR properly** to replace line-count proxies.
+6. Capacity at 100–200 VUs on the one-variable Java 21 pair.
 
 ---
 
@@ -228,9 +267,10 @@ throughput; use the medians above for quotes.
 
 ```powershell
 docker compose -f docker-compose.yml -f docker-compose.extra.yml up -d --build orchestrator
-.\scripts\run-benchmarks.ps1 -Vus 50 -ThinkTime 0 -Targets java21-virtual-low,java21-platform-low -SseTargets @() -Reps 3
-# paced first sweep: add -ThinkTime 0.2 -Vus 10 (and the broader -Targets list)
+.\scripts\run-benchmarks.ps1 -Vus 50 -ThinkTime 0 -Reps 3 -SseReps 2   # full default matrix
 node scripts\analyze-benchmarks.mjs
+node scripts\analyze-benchmarks.mjs --json | node scripts\format-benchmark-md.mjs
+# paced first sweep (§2–3): -ThinkTime 0.2 -Vus 10 and a narrower -Targets list
 ```
 
 Per-run artifacts stay in `orchestrator/runs/{runId}/`: k6 `summary.json`, sampled
