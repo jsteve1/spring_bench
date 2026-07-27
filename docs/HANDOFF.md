@@ -80,14 +80,12 @@ on desktop Docker 29.6.1 (2026-07-26)**; ready to merge.
 
 ### P0 — Prove capacity (not just cost)
 
-1. ~~**Capacity REST on Java 21 pair**~~ — done (medians in `docs/12` §6): virtual **482 rps** /
-   22 threads vs platform **318 rps** / 84 threads at 50 VUs, `THINK_TIME=0`.
-2. **SSE scale** — push held connections toward 200–1000 (watch host memory; fan-out is one
-   container per VU). This is where virtual threads should separate on RSS.
+1. ~~**Full amd64 capacity matrix**~~ — done (`docs/12` §6): 11 targets × REST+SSE; ARM skipped.
+   Headline one-variable: virtual-low **422 rps / 22 threads** vs platform-low **273 rps / 74 threads**.
+2. **SSE scale** — push held connections toward 200–1000 on the Java 21 pair (RSS divergence).
 3. **Optional: Cloudflare Access** — rerun `setup-tunnel.ps1 -AccessEmail …` when the API token
    has `Access: Apps and Policies: Edit`.
-4. Optional: capacity at 100–200 VUs and/or `-high` footprints; broader runtime sweep with
-   `THINK_TIME=0`.
+4. Fix ARM compose start and measure `java25-virtual-arm-*`; optional 100–200 VU capacity on J21.
 
 ### P1 — Cleaner science & polish
 
