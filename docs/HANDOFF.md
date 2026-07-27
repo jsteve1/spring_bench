@@ -70,9 +70,9 @@ on desktop Docker 29.6.1 (2026-07-26)**; ready to merge.
    and the orchestrator must be **rebuilt** (`--build`) for `EXTRA_MATRIX_TARGETS` to take effect,
    since `src/` is baked into the image.
 
-7. **Only the Java 21 rows have been load-tested.** `java21-virtual-low` and `java21-platform-low`
-   have recorded runs; the Java 8/11/17/25 rows start but have never been benchmarked. The ARM rows
-   also need QEMU binfmt (`infra/arm64-setup.md`).
+7. **Full-matrix capacity is filled** (`docs/12` §6): all 13 targets × REST+SSE at 50 VUs,
+   `THINK_TIME=0`. ARM rows run under QEMU — useful for emulation-cost vs amd64, not native ARM
+   quotes. See `infra/arm64-setup.md`; ARM images pin the arm64 platform digest in compose.
 
 ---
 
@@ -80,12 +80,13 @@ on desktop Docker 29.6.1 (2026-07-26)**; ready to merge.
 
 ### P0 — Prove capacity (not just cost)
 
-1. ~~**Full amd64 capacity matrix**~~ — done (`docs/12` §6): 11 targets × REST+SSE; ARM skipped.
-   Headline one-variable: virtual-low **422 rps / 22 threads** vs platform-low **273 rps / 74 threads**.
+1. ~~**Full-matrix capacity (13 targets)**~~ — done (`docs/12` §6). Headline one-variable:
+   virtual-low **422 rps / 22 threads** vs platform-low **273 rps / 74 threads**. ARM low under
+   QEMU: **41 rps** vs amd64 Java 25 low **1223 rps**.
 2. **SSE scale** — push held connections toward 200–1000 on the Java 21 pair (RSS divergence).
-3. **Optional: Cloudflare Access** — rerun `setup-tunnel.ps1 -AccessEmail …` when the API token
+3. **Higher VU capacity** — 100–200 VUs on the Java 21 pair (and optionally `-high` footprints).
+4. **Optional: Cloudflare Access** — rerun `setup-tunnel.ps1 -AccessEmail …` when the API token
    has `Access: Apps and Policies: Edit`.
-4. Fix ARM compose start and measure `java25-virtual-arm-*`; optional 100–200 VU capacity on J21.
 
 ### P1 — Cleaner science & polish
 
